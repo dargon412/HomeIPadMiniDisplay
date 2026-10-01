@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.4';
+var APP_VERSION = '2026-10-02.5';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -36,8 +36,31 @@ function initTapDebug() {
   if (!TAP_DEBUG) return;
   var box = $('tap-debug');
   if (box) box.classList.remove('hidden');
+
   var close = $('tap-debug-close');
   if (close) close.addEventListener('click', function () { box.classList.add('hidden'); });
+
+  // Collapse to just the header so the whole screen is tappable.
+  var toggle = $('tap-debug-toggle');
+  if (toggle) toggle.addEventListener('click', function () {
+    box.classList.toggle('min');
+    toggle.textContent = box.classList.contains('min') ? '展開 Expand' : '縮小 Collapse';
+  });
+
+  // Copy the whole log to the clipboard so it can be pasted anywhere.
+  var copy = $('tap-debug-copy');
+  if (copy) copy.addEventListener('click', function () {
+    var log = $('tap-debug-log');
+    var text = log ? log.textContent : '';
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () {
+        copy.textContent = '已複製 ✓';
+        setTimeout(function () { copy.textContent = '複製 Copy'; }, 1500);
+      }, function () { copy.textContent = '複製失敗'; });
+    } else {
+      copy.textContent = '不支援複製';
+    }
+  });
 
   ['touchstart', 'touchend', 'touchcancel', 'click', 'pointerdown', 'pointerup'].forEach(function (type) {
     document.addEventListener(type, function (e) {
@@ -701,6 +724,10 @@ function cellDate(node) {
   return (cell && !cell.classList.contains('empty')) ? cell.getAttribute('data-date') : null;
 }
 
+/* Called at the start of each tap handler so the debug log shows whether
+   OUR code ran, separately from the raw browser events. */
+function mark(what) { if (TAP_DEBUG) tapLog('   -> HANDLER: ' + what); }
+
 function bindUi() {
   onTap($('prev-month'), function () {
     calCursor.setMonth(calCursor.getMonth() - 1); renderCalendar();
@@ -717,6 +744,7 @@ function bindUi() {
   onTap($('cal-grid'), function (e) {
     var target = (e.changedTouches && e.changedTouches[0]) || e.target;
     var key = cellDate(target);
+    mark('cal-grid tapped, date=' + key);
     if (key) openModal(key);
   });
 
@@ -730,10 +758,11 @@ function bindUi() {
   });
 
   onTap($('settings-btn'), function () {
+    mark('settings-btn tapped, openSettings=' + (typeof window.openSettings));
     if (window.openSettings) window.openSettings();
   });
 
-  onTap($('weather'), openWeatherDetail);
+  onTap($('weather'), function (e) { mark('weather tapped'); openWeatherDetail(e); });
   onTap($('wm-close'), closeWeatherDetail);
   onTap($('weather-modal'), function (e) {
     if (e.target === $('weather-modal')) closeWeatherDetail();

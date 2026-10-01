@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.2';
+var APP_VERSION = '2026-10-02.3';
 
 /* ----------------------------- helpers ----------------------------- */
 function $(id) { return document.getElementById(id); }
@@ -118,6 +118,11 @@ function tickClock() {
   $('time').textContent = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
   $('date').textContent = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日 ' +
     WEEKDAYS[now.getDay()];
+}
+
+function showVersion() {
+  var v = $('app-version');
+  if (v) v.textContent = 'v' + APP_VERSION;
 }
 
 /* ============================================================
@@ -742,6 +747,7 @@ function scheduleRefresh() {
 
 function start() {
   bindUi();
+  showVersion();
   tickClock();
   renderCalendar();
   buildBusSkeleton();

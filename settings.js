@@ -506,6 +506,12 @@
       close();
       if (window.reloadDashboard) window.reloadDashboard();
     }));
+    var ver = document.createElement('div');
+    ver.className = 'sf-hint';
+    ver.style.marginTop = '8px';
+    ver.style.textAlign = 'center';
+    ver.textContent = '版本 Version ' + (window.appVersion ? window.appVersion() : '?');
+    foot.appendChild(ver);
     panel.appendChild(foot);
 
     box.appendChild(panel);

@@ -8,8 +8,45 @@
    ============================================================ */
 'use strict';
 
+/* Bump this whenever you change the app, so you can tell which build a
+   device is running (shown in ⚙️ settings and logged on load). */
+var APP_VERSION = '2026-10-02.2';
+
 /* ----------------------------- helpers ----------------------------- */
 function $(id) { return document.getElementById(id); }
+
+/* Tapping on iPadOS can be flaky on non-<button> elements: a tap that
+   moves even slightly is treated as a scroll, and `click` never fires.
+   This helper fires the handler on `touchend` (if the finger barely
+   moved), and falls back to `click` for mouse/desktop. */
+function onTap(node, handler) {
+  if (!node) return;
+  var moved = false, startX = 0, startY = 0, handled = false;
+
+  node.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) return;
+    moved = false; handled = false;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  node.addEventListener('touchmove', function (e) {
+    if (e.touches.length !== 1) return;
+    if (Math.abs(e.touches[0].clientX - startX) > 10 ||
+        Math.abs(e.touches[0].clientY - startY) > 10) moved = true;
+  }, { passive: true });
+
+  node.addEventListener('touchend', function (e) {
+    if (moved) return;
+    handled = true;
+    handler(e);
+  });
+
+  node.addEventListener('click', function (e) {
+    if (handled) { handled = false; return; }  // avoid double-firing after touchend
+    handler(e);
+  });
+}
 
 function el(tag, cls, text) {
   var e = document.createElement(tag);
@@ -594,42 +631,59 @@ function addEvent() {
 /* ============================================================
    5. WIRE UP + REFRESH LOOPS
    ============================================================ */
+/* Walk up from a tap target to the nearest ancestor matching a class.
+   Used instead of closest() to stay compatible with older Safari. */
+function findUp(node, cls) {
+  while (node && node !== document) {
+    if (node.classList && node.classList.contains(cls)) return node;
+    node = node.parentNode;
+  }
+  return null;
+}
+
+/* Find the date of the calendar cell containing a tap target. */
+function cellDate(node) {
+  var cell = findUp(node, 'cal-cell');
+  return (cell && !cell.classList.contains('empty')) ? cell.getAttribute('data-date') : null;
+}
+
 function bindUi() {
-  $('prev-month').addEventListener('click', function () {
+  onTap($('prev-month'), function () {
     calCursor.setMonth(calCursor.getMonth() - 1); renderCalendar();
   });
-  $('next-month').addEventListener('click', function () {
+  onTap($('next-month'), function () {
     calCursor.setMonth(calCursor.getMonth() + 1); renderCalendar();
   });
-  $('today-btn').addEventListener('click', function () {
+  onTap($('today-btn'), function () {
     calCursor = new Date(); calCursor.setDate(1); renderCalendar();
   });
 
-  $('cal-grid').addEventListener('click', function (e) {
-    var cell = e.target.closest ? e.target.closest('.cal-cell') : null;
-    if (cell && cell.getAttribute('data-date')) openModal(cell.getAttribute('data-date'));
+  // Day taps: use a touch-aware tap on the grid. The handler walks up to the
+  // cell so tapping the number, badge, weather icon or an event text all work.
+  onTap($('cal-grid'), function (e) {
+    var target = (e.changedTouches && e.changedTouches[0]) || e.target;
+    var key = cellDate(target);
+    if (key) openModal(key);
   });
 
-  $('modal-add-btn').addEventListener('click', addEvent);
+  onTap($('modal-add-btn'), addEvent);
   $('modal-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') addEvent();
   });
-  $('modal-close').addEventListener('click', closeModal);
-  $('modal').addEventListener('click', function (e) {
+  onTap($('modal-close'), closeModal);
+  onTap($('modal'), function (e) {
     if (e.target === $('modal')) closeModal();
   });
 
-  var gear = $('settings-btn');
-  if (gear) gear.addEventListener('click', function () {
+  onTap($('settings-btn'), function () {
     if (window.openSettings) window.openSettings();
   });
 
-  var wid = $('weather');
-  if (wid) wid.addEventListener('click', openWeatherDetail);
-  var wclose = $('wm-close');
-  if (wclose) wclose.addEventListener('click', closeWeatherDetail);
-  var wm = $('weather-modal');
-  if (wm) wm.addEventListener('click', function (e) { if (e.target === wm) closeWeatherDetail(); });
+  onTap($('weather'), openWeatherDetail);
+  onTap($('wm-close'), closeWeatherDetail);
+  onTap($('weather-modal'), function (e) {
+    if (e.target === $('weather-modal')) closeWeatherDetail();
+  });
 
   // remember recent interaction so auto-refresh pauses while you use the screen
   ['pointerdown', 'touchstart', 'keydown', 'input', 'focusin', 'wheel'].forEach(function (ev) {
@@ -656,6 +710,10 @@ window.reloadDashboard = function () {
 /* ---- pause auto-refresh while the user is interacting ---- */
 var lastInteraction = 0;
 function markInteraction() { lastInteraction = Date.now(); }
+
+/* Shows the running version and lets you confirm a fresh copy loaded.
+   Visible in the ⚙️ settings footer. */
+window.appVersion = function () { return APP_VERSION; };
 
 function isInteracting() {
   var s = $('settings'), m = $('modal'), w = $('weather-modal');

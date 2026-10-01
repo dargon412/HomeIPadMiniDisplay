@@ -74,6 +74,31 @@ Wrapped in an IIFE that exposes two globals:
 Internally it keeps a `working` copy of the config while you edit, and only writes it when you
 press **儲存並套用**.
 
+## Tapping on iPadOS — use `onTap()`
+
+**Do not bind `click` directly to non-`<button>` elements.** On iPadOS Safari a tap that moves even
+one pixel is classified as a scroll and no `click` is fired. That silently broke the settings gear,
+calendar day taps and the weather box while `<button>` elements kept working.
+
+Always use the helper:
+
+```js
+onTap($('some-element'), function () { /* ... */ });
+```
+
+`onTap` fires on `touchend` when the finger moved less than 10 px, ignores drags, still supports
+mouse `click`, and guards against the touch+click double-fire. Inside a handler that needs the
+element under the finger, read `e.changedTouches[0]` (falling back to `e.target`) and walk up the
+DOM with `findUp(node, 'class-name')` rather than `closest()`.
+
+## Releases and caching
+
+GitHub Pages sends `cache-control: max-age=600`, and Safari caches even more aggressively
+(especially for "Added to Home Screen" sites). So **every release must bump the `?v=N` numbers** on
+the `<script>` / `<link>` tags in `index.html`, and should bump `APP_VERSION` in `app.js`. The
+version is shown in the ⚙️ settings footer, which is the quickest way to confirm a device is
+running the build you think it is.
+
 ## Common change recipes
 
 ### Add a field to settings

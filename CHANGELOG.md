@@ -5,7 +5,23 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Taps unreliable on iPadOS.** The ⚙️ gear, calendar day taps and the weather box did not
+  respond on the iPad, while the month buttons did. `addEventListener('click')` is not dependable
+  on non-`<button>` elements in iPadOS Safari — a tap that moves even slightly is treated as a
+  scroll and `click` never fires.
+  - Added an `onTap()` helper: handles `touchend` when the finger barely moved, with a guard so a
+    following synthetic `click` does not double-fire. Falls back to `click` for mouse input.
+  - Calendar day taps now land anywhere in the cell (day number, badge, weather icon, event text)
+    via `findUp()`, replacing `closest()`.
+  - All interactive elements (month nav, day cells, gear, weather box, modal buttons) use `onTap`.
+
 ### Added
+- `APP_VERSION` constant, printed in the ⚙️ settings footer, so you can tell which build a device
+  is running.
+- `?v=N` query strings on `style.css` / `config.js` / `settings.js` / `app.js` to defeat Safari's
+  aggressive caching. **Bump `N` in `index.html` on every release.**
+
 - **7-day forecast strip** in the header (icon + high/low per day), from the HKO 9-day forecast.
 - **Weather icon on the calendar** for the next 7 days, beside the shift badge.
 - **Tap the weather box** to open a detail popup: full short-term forecast paragraph, update time,

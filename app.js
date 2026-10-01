@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.6';
+var APP_VERSION = '2026-10-02.7';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -656,6 +656,7 @@ function renderCalendar() {
 var modalDateKey = null;
 
 function openModal(key) {
+  if (!key) return;
   modalDateKey = key;
   var d = parseYmd(key);
   $('modal-date').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
@@ -663,7 +664,7 @@ function openModal(key) {
   renderModalEvents();
   $('modal').classList.remove('hidden');
   $('modal-input').value = '';
-  setTimeout(function () { $('modal-input').focus(); }, 100);
+  mark('openModal ' + key + ' -> visible=' + !$('modal').classList.contains('hidden'));
 }
 
 function closeModal() {
@@ -718,9 +719,12 @@ function mark(what) { if (TAP_DEBUG) tapLog('   -> HANDLER: ' + what); }
 /* Attach a tap handler straight to a calendar cell, carrying its own date.
    No DOM walking, so it is immune to re-renders and attribute quirks. */
 function bindCellTap(cell, key) {
-  var moved = false, sx = 0, sy = 0;
+  var moved = false, sx = 0, sy = 0, handled = false;
   cell.addEventListener('touchstart', function (e) {
-    if (e.touches && e.touches.length === 1) { moved = false; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+    if (e.touches && e.touches.length === 1) {
+      moved = false; handled = false;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    }
   }, { passive: true });
   cell.addEventListener('touchmove', function (e) {
     if (e.touches && e.touches.length === 1 &&
@@ -728,10 +732,12 @@ function bindCellTap(cell, key) {
   }, { passive: true });
   cell.addEventListener('touchend', function () {
     if (moved) return;
+    handled = true;                 // stop the synthetic click that follows
     mark('cell touchend ' + key);
     openModal(key);
   });
   cell.addEventListener('click', function () {
+    if (handled) { handled = false; return; }   // already handled by touchend
     mark('cell click ' + key);
     openModal(key);
   });
@@ -762,6 +768,8 @@ function bindUi() {
   onTap($('modal'), function (e) {
     if (e.target === $('modal')) closeModal();
   });
+
+  mark('bindUi done');
 
   onTap($('settings-btn'), function () {
     mark('settings-btn tapped, openSettings=' + (typeof window.openSettings));

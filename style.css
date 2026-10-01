@@ -208,7 +208,8 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 /* ---------------- MODAL ---------------- */
 #modal, #weather-modal {
   position: fixed; inset: 0; background: rgba(3, 8, 18, 0.72);
-  display: flex; align-items: center; justify-content: center; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;   /* above the debug panel (200) so it is never hidden */
 }
 #modal.hidden, #weather-modal.hidden, #settings.hidden { display: none; }
 
@@ -307,7 +308,7 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 #settings-btn:active { background: var(--accent); }
 
 #settings {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0; z-index: 320;   /* above modals and debug panel */
   background: rgba(3, 8, 18, 0.82);
   display: flex; align-items: center; justify-content: center;
 }

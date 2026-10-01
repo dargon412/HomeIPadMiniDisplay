@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#0b1220">
   <link rel="manifest" href="manifest.json">
   <title>家庭看板 · Home Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -60,6 +60,14 @@
   <!-- version marker (bottom-left of the main page) -->
   <div id="app-version"></div>
 
+  <!-- on-device tap diagnostics (only shown with ?debug=1) -->
+  <div id="tap-debug" class="hidden">
+    <div id="tap-debug-head">TAP DEBUG <span id="tap-debug-count">0</span>
+      <button id="tap-debug-close">✕</button>
+    </div>
+    <div id="tap-debug-log"></div>
+  </div>
+
   <!-- ======================= WEATHER DETAIL ======================= -->
   <div id="weather-modal" class="hidden">
     <div class="modal-card">
@@ -85,8 +93,8 @@
     </div>
   </div>
 
-  <script src="config.js?v=4"></script>
-  <script src="settings.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="config.js?v=5"></script>
+  <script src="settings.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

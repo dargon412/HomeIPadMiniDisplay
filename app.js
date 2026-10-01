@@ -10,7 +10,56 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.3';
+var APP_VERSION = '2026-10-02.4';
+
+/* ---------------- on-device tap diagnostics ----------------
+   Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
+   to show a panel that logs the raw events your taps produce. This is
+   how we find out exactly what iPadOS is sending. */
+var TAP_DEBUG = /[?&]debug=1/.test(location.search);
+
+function tapLog(msg) {
+  if (!TAP_DEBUG) return;
+  var log = $('tap-debug-log');
+  if (!log) return;
+  var line = document.createElement('div');
+  var t = new Date();
+  line.textContent = pad2(t.getHours()) + ':' + pad2(t.getMinutes()) + ':' + pad2(t.getSeconds()) +
+    '.' + String(t.getMilliseconds()).slice(0, 3) + '  ' + msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+  var c = $('tap-debug-count');
+  if (c) c.textContent = String(Number(c.textContent || 0) + 1);
+}
+
+function initTapDebug() {
+  if (!TAP_DEBUG) return;
+  var box = $('tap-debug');
+  if (box) box.classList.remove('hidden');
+  var close = $('tap-debug-close');
+  if (close) close.addEventListener('click', function () { box.classList.add('hidden'); });
+
+  ['touchstart', 'touchend', 'touchcancel', 'click', 'pointerdown', 'pointerup'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      var el = e.target || e.srcElement;
+      if (el && el.id === 'tap-debug-close') return;
+      var desc = el ? (el.tagName + (el.id ? '#' + el.id : '') +
+        (el.className && typeof el.className === 'string' && el.className ? '.' + el.className.split(' ').join('.') : '')) : '?';
+      var extra = '';
+      if (e.changedTouches && e.changedTouches.length) {
+        var tc = e.changedTouches[0];
+        extra = ' [' + Math.round(tc.clientX) + ',' + Math.round(tc.clientY) + ']';
+      } else if (e.clientX != null) {
+        extra = ' [' + Math.round(e.clientX) + ',' + Math.round(e.clientY) + ']';
+      }
+      tapLog(type + extra + ' <- ' + desc);
+    }, true);
+  });
+
+  tapLog('debug ready. version ' + APP_VERSION);
+  tapLog('ontouchstart: ' + ('ontouchstart' in window) + ' | maxTouchPoints: ' + (navigator.maxTouchPoints || 0));
+  tapLog('UA: ' + navigator.userAgent);
+}
 
 /* ----------------------------- helpers ----------------------------- */
 function $(id) { return document.getElementById(id); }
@@ -748,6 +797,7 @@ function scheduleRefresh() {
 function start() {
   bindUi();
   showVersion();
+  initTapDebug();
   tickClock();
   renderCalendar();
   buildBusSkeleton();

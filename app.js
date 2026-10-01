@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.5';
+var APP_VERSION = '2026-10-02.6';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -622,6 +622,9 @@ function renderCalendar() {
     var cell = el('div', 'cal-cell');
     if (key === todayKey) cell.classList.add('today');
     cell.setAttribute('data-date', key);
+    // Bind the date directly to this cell so a tap never has to walk the DOM
+    // to work out which day it hit (avoids stale-node and attribute issues).
+    bindCellTap(cell, key);
 
     var top = el('div', 'cal-top');
     top.appendChild(el('span', 'cal-day', String(dayNum)));
@@ -708,25 +711,31 @@ function addEvent() {
 /* ============================================================
    5. WIRE UP + REFRESH LOOPS
    ============================================================ */
-/* Walk up from a tap target to the nearest ancestor matching a class.
-   Used instead of closest() to stay compatible with older Safari. */
-function findUp(node, cls) {
-  while (node && node !== document) {
-    if (node.classList && node.classList.contains(cls)) return node;
-    node = node.parentNode;
-  }
-  return null;
-}
-
-/* Find the date of the calendar cell containing a tap target. */
-function cellDate(node) {
-  var cell = findUp(node, 'cal-cell');
-  return (cell && !cell.classList.contains('empty')) ? cell.getAttribute('data-date') : null;
-}
-
 /* Called at the start of each tap handler so the debug log shows whether
    OUR code ran, separately from the raw browser events. */
 function mark(what) { if (TAP_DEBUG) tapLog('   -> HANDLER: ' + what); }
+
+/* Attach a tap handler straight to a calendar cell, carrying its own date.
+   No DOM walking, so it is immune to re-renders and attribute quirks. */
+function bindCellTap(cell, key) {
+  var moved = false, sx = 0, sy = 0;
+  cell.addEventListener('touchstart', function (e) {
+    if (e.touches && e.touches.length === 1) { moved = false; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, { passive: true });
+  cell.addEventListener('touchmove', function (e) {
+    if (e.touches && e.touches.length === 1 &&
+        (Math.abs(e.touches[0].clientX - sx) > 10 || Math.abs(e.touches[0].clientY - sy) > 10)) moved = true;
+  }, { passive: true });
+  cell.addEventListener('touchend', function () {
+    if (moved) return;
+    mark('cell touchend ' + key);
+    openModal(key);
+  });
+  cell.addEventListener('click', function () {
+    mark('cell click ' + key);
+    openModal(key);
+  });
+}
 
 function bindUi() {
   onTap($('prev-month'), function () {
@@ -741,12 +750,9 @@ function bindUi() {
 
   // Day taps: use a touch-aware tap on the grid. The handler walks up to the
   // cell so tapping the number, badge, weather icon or an event text all work.
-  onTap($('cal-grid'), function (e) {
-    var target = (e.changedTouches && e.changedTouches[0]) || e.target;
-    var key = cellDate(target);
-    mark('cal-grid tapped, date=' + key);
-    if (key) openModal(key);
-  });
+  // Calendar day taps are bound per-cell inside renderCalendar() via
+  // bindCellTap(), so nothing to wire here. A grid-level handler also
+  // catches taps on empty cells (which should do nothing).
 
   onTap($('modal-add-btn'), addEvent);
   $('modal-input').addEventListener('keydown', function (e) {

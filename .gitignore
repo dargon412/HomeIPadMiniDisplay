@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Local scratch / diagnostics (never commit test pages)
+_diag.html
+*.local.*
+
+# OS thumbnails
+Thumbs.db

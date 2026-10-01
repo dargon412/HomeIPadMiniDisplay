@@ -1,0 +1,706 @@
+/* ============================================================
+   家庭看板 Home Dashboard — app logic
+   Works on iPadOS 15 Safari (no build step, no frameworks).
+   Data sources (all official, free, browser-friendly):
+     • KMB / LWB ETA : https://data.etabus.gov.hk
+     • Citybus ETA   : https://rt.data.gov.hk
+     • Weather (HKO) : https://data.weather.gov.hk
+   ============================================================ */
+'use strict';
+
+/* ----------------------------- helpers ----------------------------- */
+function $(id) { return document.getElementById(id); }
+
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+
+function parseYmd(s) {
+  var p = String(s || '').split('-');
+  if (p.length !== 3) return null;
+  return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+}
+
+function nowHM() {
+  var d = new Date();
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+/* fetch JSON with a timeout so a dead network never hangs the screen */
+function fetchJson(url, timeoutMs) {
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, timeoutMs || 12000);
+  var opts = ctrl ? { signal: ctrl.signal, cache: 'no-store' } : { cache: 'no-store' };
+  return fetch(url, opts).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (json) {
+    clearTimeout(timer);
+    return json;
+  }, function (err) {
+    clearTimeout(timer);
+    throw err;
+  });
+}
+
+function setStatus(text) { $('status').textContent = text; }
+
+/* ----------------------------- CONFIG ----------------------------- */
+/* The ⚙️ settings page saves changes in localStorage. If there are none
+   we fall back to config.js. */
+var CFG = (window.DashboardConfig && window.DashboardConfig.load)
+  ? window.DashboardConfig.load()
+  : ((typeof CONFIG !== 'undefined' && CONFIG) ? CONFIG : {});
+var LANG = 'tc';
+
+function normalizeConfig() {
+  CFG.roster = CFG.roster || {};
+  CFG.roster.cycle = (CFG.roster.cycle && CFG.roster.cycle.length) ? CFG.roster.cycle : ['M', 'N', 'L', 'L'];
+  CFG.roster.labels = CFG.roster.labels || { M: '早', N: '夜', L: '休' };
+  CFG.busStops = CFG.busStops || [];
+  CFG.weather = CFG.weather || {};
+  CFG.refresh = CFG.refresh || { seconds: 30 };
+  LANG = CFG.weather.language || 'tc';
+}
+normalizeConfig();
+
+/* ============================================================
+   1. CLOCK
+   ============================================================ */
+var WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+function tickClock() {
+  var now = new Date();
+  $('time').textContent = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
+  $('date').textContent = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日 ' +
+    WEEKDAYS[now.getDay()];
+}
+
+/* ============================================================
+   2. WEATHER  (Hong Kong Observatory open data)
+   ============================================================ */
+var HKO_ICONS = {
+  50: '☀️', 51: '🌤️', 52: '⛅', 53: '🌦️', 54: '🌧️',
+  60: '☁️', 61: '☁️', 62: '🌧️', 63: '🌧️', 64: '🌧️', 65: '⛈️',
+  70: '🌫️', 71: '🌫️', 72: '🌫️', 73: '🌫️', 74: '🌫️', 75: '🌫️', 76: '🌫️', 77: '🌫️',
+  80: '🌬️', 81: '🌬️', 82: '🌬️', 83: '🌬️', 84: '🌬️', 85: '🌬️',
+  90: '🔥', 91: '🔥', 92: '🥶', 93: '🥶'
+};
+
+function iconEmoji(code) {
+  if (code == null) return '🌡️';
+  if (HKO_ICONS[code]) return HKO_ICONS[code];
+  // fall back to the nearest decade
+  var base = Math.floor(code / 10) * 10;
+  return HKO_ICONS[base] || '🌡️';
+}
+
+function pickTemperature(list) {
+  if (!list || !list.length) return null;
+  var want = CFG.weather.district;
+  if (want) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].place && list[i].place.indexOf(want) >= 0) return list[i];
+    }
+  }
+  for (var j = 0; j < list.length; j++) {
+    if (list[j].place && list[j].place.indexOf('天文台') >= 0) return list[j];
+  }
+  return list[0];
+}
+
+/* ---- HKO weather stations (approximate coordinates) for GPS lookup ---- */
+var STATIONS = [
+  { name: '京士柏', lat: 22.312, lon: 114.173 },
+  { name: '香港天文台', lat: 22.302, lon: 114.174 },
+  { name: '黃竹坑', lat: 22.248, lon: 114.170 },
+  { name: '打鼓嶺', lat: 22.528, lon: 114.156 },
+  { name: '流浮山', lat: 22.469, lon: 113.984 },
+  { name: '大埔', lat: 22.449, lon: 114.170 },
+  { name: '沙田', lat: 22.402, lon: 114.210 },
+  { name: '屯門', lat: 22.390, lon: 113.976 },
+  { name: '將軍澳', lat: 22.316, lon: 114.256 },
+  { name: '西貢', lat: 22.383, lon: 114.271 },
+  { name: '長洲', lat: 22.201, lon: 114.027 },
+  { name: '赤鱲角', lat: 22.309, lon: 113.914 },
+  { name: '青衣', lat: 22.344, lon: 114.098 },
+  { name: '石崗', lat: 22.435, lon: 114.085 },
+  { name: '荃灣可觀', lat: 22.383, lon: 114.108 },
+  { name: '荃灣城門谷', lat: 22.376, lon: 114.126 },
+  { name: '香港公園', lat: 22.278, lon: 114.162 },
+  { name: '筲箕灣', lat: 22.281, lon: 114.229 },
+  { name: '九龍城', lat: 22.332, lon: 114.188 },
+  { name: '跑馬地', lat: 22.270, lon: 114.183 },
+  { name: '黃大仙', lat: 22.341, lon: 114.199 },
+  { name: '赤柱', lat: 22.216, lon: 114.213 },
+  { name: '觀塘', lat: 22.318, lon: 114.224 },
+  { name: '深水埗', lat: 22.335, lon: 114.162 },
+  { name: '啟德跑道公園', lat: 22.305, lon: 114.213 },
+  { name: '元朗公園', lat: 22.441, lon: 114.018 },
+  { name: '大美督', lat: 22.466, lon: 114.237 }
+];
+
+function nearestStation(lat, lon) {
+  var best = null, bestD = Infinity;
+  var cosLat = Math.cos(lat * Math.PI / 180);
+  STATIONS.forEach(function (s) {
+    var dy = (s.lat - lat) * 111.32;
+    var dx = (s.lon - lon) * 111.32 * cosLat;
+    var d = dy * dy + dx * dx;
+    if (d < bestD) { bestD = d; best = s; }
+  });
+  return best;
+}
+
+/* Ask the browser for GPS and hand back the nearest HKO station. */
+window.detectMyLocation = function (cb) {
+  if (!navigator.geolocation) { if (cb) cb(null, '此裝置不支援定位'); return; }
+  navigator.geolocation.getCurrentPosition(
+    function (pos) { if (cb) cb(nearestStation(pos.coords.latitude, pos.coords.longitude)); },
+    function (err) { if (cb) cb(null, err.message); },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+  );
+};
+
+function detectAndApply() {
+  window.detectMyLocation(function (st) {
+    if (!st) return;
+    CFG.weather.district = st.name;
+    if (window.DashboardConfig) {
+      var cfg = window.DashboardConfig.load();
+      cfg.weather.district = st.name;
+      window.DashboardConfig.save(cfg);
+    }
+    loadWeather();
+  });
+}
+
+/* Forecast for the next 7 days, keyed by date (YYYY-MM-DD). */
+var forecastByDate = {};
+var todaySummary = '';   // concise daily summary shown in the header
+var fndData = null;      // full 9-day forecast, for the detail popup
+var flwData = null;      // short-term forecast, for the detail popup
+
+function fndKey(s) { return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8); }
+
+/* Popup with the full detailed weather text (tap the weather box). */
+function openWeatherDetail() {
+  var body = $('wm-body');
+  body.innerHTML = '';
+
+  var now = new Date();
+  $('wm-title').textContent = '今日天氣 · ' + now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
+
+  if (flwData && flwData.forecastDesc) {
+    var p = el('p', 'wm-desc', flwData.forecastDesc);
+    body.appendChild(p);
+    var meta = [];
+    if (flwData.forecastPeriod) meta.push(flwData.forecastPeriod);
+    if (flwData.updateTime) meta.push('更新 ' + String(flwData.updateTime).slice(11, 16));
+    if (meta.length) body.appendChild(el('div', 'wm-meta', meta.join(' · ')));
+  }
+  if (flwData && flwData.warningMessage) {
+    body.appendChild(el('div', 'wm-warn', '⚠️ ' + flwData.warningMessage));
+  }
+
+  if (fndData && fndData.weatherForecast) {
+    body.appendChild(el('h4', 'wm-h', '未來數日 Forecast'));
+    fndData.weatherForecast.slice(0, 7).forEach(function (day) {
+      var row = el('div', 'wm-row');
+      row.appendChild(el('span', 'wm-ic', iconEmoji(day.ForecastIcon)));
+      var mid = el('div', 'wm-mid');
+      mid.appendChild(el('div', 'wm-day', day.week + '　' +
+        (day.forecastMaxtemp ? day.forecastMaxtemp.value : '-') + '° / ' +
+        (day.forecastMintemp ? day.forecastMintemp.value : '-') + '°'));
+      mid.appendChild(el('div', 'wm-txt', day.forecastWeather || ''));
+      row.appendChild(mid);
+      body.appendChild(row);
+    });
+  }
+
+  $('weather-modal').classList.remove('hidden');
+}
+
+function closeWeatherDetail() { $('weather-modal').classList.add('hidden'); }
+
+function renderForecast(fnd) {
+  var box = $('forecast');
+  if (!box) return;
+  box.innerHTML = '';
+  forecastByDate = {};
+  if (!fnd || !fnd.weatherForecast) return;
+
+  fnd.weatherForecast.slice(0, 7).forEach(function (day, i) {
+    var key = fndKey(day.forecastDate);
+    var icon = day.ForecastIcon;
+    forecastByDate[key] = {
+      icon: icon,
+      max: day.forecastMaxtemp && day.forecastMaxtemp.value,
+      min: day.forecastMintemp && day.forecastMintemp.value
+    };
+
+    var item = el('div', 'fc-day');
+    item.appendChild(el('div', 'fc-dow', i === 0 ? '今天' : String(day.week || '').replace('星期', '')));
+    item.appendChild(el('div', 'fc-icon', iconEmoji(icon)));
+    var temp = el('div', 'fc-temp');
+    temp.appendChild(el('span', 'fc-hi', String((day.forecastMaxtemp || {}).value != null ? day.forecastMaxtemp.value : '-')));
+    temp.appendChild(el('span', 'fc-lo', '/' + String((day.forecastMintemp || {}).value != null ? day.forecastMintemp.value : '-')));
+    item.appendChild(temp);
+    item.title = day.forecastWeather || '';
+    box.appendChild(item);
+  });
+}
+
+function loadWeather() {
+  var base = 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?lang=' + LANG + '&dataType=';
+  return Promise.all([
+    fetchJson(base + 'rhrread', 12000).catch(function () { return null; }),
+    fetchJson(base + 'flw', 12000).catch(function () { return null; }),
+    fetchJson(base + 'fnd', 12000).catch(function () { return null; })
+  ]).then(function (res) {
+    var real = res[0], flw = res[1], fnd = res[2];
+    if (!real) { $('weather-desc').textContent = '天氣載入失敗'; return; }
+
+    var t = pickTemperature(real.temperature && real.temperature.data);
+    $('weather-temp').textContent = t ? (t.value + '°C') : '--°C';
+
+    var code = real.icon && real.icon[0];
+    $('weather-icon').textContent = iconEmoji(code);
+
+    var hum = real.humidity && real.humidity.data && real.humidity.data[0];
+    var uv = real.uvindex && real.uvindex.data && real.uvindex.data[0];
+    var parts = [];
+    if (hum && hum.value != null) parts.push('濕度 ' + hum.value + '%');
+    if (uv && uv.value != null) parts.push('UV ' + uv.value);
+    if (t && t.place) parts.push(t.place);
+    $('weather-extra').textContent = parts.join(' · ');
+
+    // Header shows the concise DAILY summary; the full paragraph is in the popup.
+    flwData = flw;
+    fndData = fnd;
+    todaySummary = (fnd && fnd.weatherForecast && fnd.weatherForecast[0] && fnd.weatherForecast[0].forecastWeather)
+      ? fnd.weatherForecast[0].forecastWeather : '';
+    if (real.warningMessage) {
+      $('weather-desc').textContent = '⚠️ ' + real.warningMessage;
+    } else {
+      $('weather-desc').textContent = todaySummary || (flw && flw.forecastDesc) || '香港天文台';
+    }
+
+    renderForecast(fnd);
+    renderCalendar();   // so the calendar shows the new forecast icons
+  });
+}
+
+/* ============================================================
+   3. BUS ARRIVALS
+   ============================================================ */
+function isCitybus(op) {
+  var o = String(op || 'kmb').toLowerCase();
+  return o === 'ctb' || o === 'citybus' || o === 'nwfb';
+}
+
+/* Build the ETA request URL for one stop + one route. */
+function etaUrl(stop, routeCfg) {
+  if (isCitybus(stop.operator)) {
+    var company = stop.company || 'CTB';
+    return 'https://rt.data.gov.hk/v2/transport/citybus/eta/' +
+      encodeURIComponent(company) + '/' + encodeURIComponent(stop.stopId) + '/' + encodeURIComponent(routeCfg.route);
+  }
+  // KMB / LWB share the same endpoint; service type is normally "1".
+  var svc = routeCfg.serviceType || '1';
+  return 'https://data.etabus.gov.hk/v1/transport/kmb/eta/' +
+    encodeURIComponent(stop.stopId) + '/' + encodeURIComponent(routeCfg.route) + '/' + encodeURIComponent(svc);
+}
+
+function minutesUntil(iso) {
+  if (!iso) return null;
+  var t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.round((t - Date.now()) / 60000);
+}
+
+function chipFromItem(it) {
+  var chip = el('div', 'chip');
+  var mins = minutesUntil(it.eta);
+  if (mins == null) {
+    chip.classList.add('none');
+    chip.appendChild(el('div', 'chip-min', '—'));
+    var note0 = it.rmk_tc || it.rmk_en || '';
+    if (note0) chip.appendChild(el('div', 'chip-note', note0));
+    return chip;
+  }
+  chip.appendChild(el('div', 'chip-min', mins <= 0 ? '即將' : mins + '分'));
+  var d = new Date(it.eta);
+  chip.appendChild(el('div', 'chip-time', pad2(d.getHours()) + ':' + pad2(d.getMinutes())));
+  var note = it.rmk_tc || '';
+  if (note && note.indexOf('最後') >= 0) chip.appendChild(el('div', 'chip-note', '最後'));
+  return chip;
+}
+
+/* Create the empty DOM skeleton once. */
+function buildBusSkeleton() {
+  var wrap = $('bus-list');
+  wrap.innerHTML = '';
+  if (!CFG.busStops.length) {
+    wrap.appendChild(el('div', 'cal-more', '請在 config.js 加入巴士站及路線。'));
+    return;
+  }
+  CFG.busStops.forEach(function (stop, si) {
+    var card = el('div', 'stop-card');
+
+    var head = el('div', 'stop-head');
+    head.appendChild(el('span', 'stop-name', stop.name || stop.stopId));
+    head.appendChild(el('span', 'op-tag', (stop.operator || 'kmb').toUpperCase()));
+    card.appendChild(head);
+
+    (stop.routes || []).forEach(function (r, ri) {
+      var row = el('div', 'route-row');
+      row.id = 'route-' + si + '-' + ri;
+
+      var label = el('div', 'route-label');
+      label.appendChild(el('span', 'route-no', r.label || r.route));
+      label.appendChild(el('span', 'route-dest', r.dest || ''));
+      row.appendChild(label);
+
+      var chips = el('div', 'chips');
+      var loading = el('div', 'chip loading');
+      loading.appendChild(el('div', 'chip-min', '…'));
+      chips.appendChild(loading);
+      row.appendChild(chips);
+
+      card.appendChild(row);
+    });
+
+    wrap.appendChild(card);
+  });
+}
+
+function renderRoute(si, ri, json) {
+  var row = $('route-' + si + '-' + ri);
+  if (!row) return;
+  var chips = row.querySelector('.chips');
+  chips.innerHTML = '';
+
+  var data = (json && json.data) ? json.data : [];
+  if (!data.length) {
+    var none = el('div', 'chip none');
+    none.appendChild(el('div', 'chip-min', '暫無班次'));
+    chips.appendChild(none);
+    return;
+  }
+
+  var destEl = row.querySelector('.route-dest');
+  if (destEl && !destEl.textContent) {
+    destEl.textContent = data[0].dest_tc || data[0].dest_en || '';
+  }
+
+  data.slice(0, 3).forEach(function (it) { chips.appendChild(chipFromItem(it)); });
+}
+
+function renderRouteError(si, ri) {
+  var row = $('route-' + si + '-' + ri);
+  if (!row) return;
+  var chips = row.querySelector('.chips');
+  chips.innerHTML = '';
+  var e = el('div', 'chip err');
+  e.appendChild(el('div', 'chip-min', '載入失敗'));
+  chips.appendChild(e);
+}
+
+function loadBus() {
+  if (!CFG.busStops.length) return Promise.resolve();
+  setStatus('巴士更新中…');
+  var tasks = [];
+  CFG.busStops.forEach(function (stop, si) {
+    (stop.routes || []).forEach(function (r, ri) {
+      tasks.push(
+        fetchJson(etaUrl(stop, r), 12000)
+          .then(function (json) { renderRoute(si, ri, json); })
+          .catch(function () { renderRouteError(si, ri); })
+      );
+    });
+  });
+  return Promise.all(tasks).then(function () {
+    setStatus('巴士 ' + nowHM() + ' 更新');
+  });
+}
+
+/* ============================================================
+   4. CALENDAR + ROSTER + EVENTS
+   ============================================================ */
+var EVENTS_KEY = 'homeDashboard.events.v1';
+var calCursor = new Date();
+calCursor.setDate(1);
+
+function loadEvents() {
+  try { return JSON.parse(localStorage.getItem(EVENTS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveEvents(obj) {
+  try { localStorage.setItem(EVENTS_KEY, JSON.stringify(obj)); }
+  catch (e) { /* storage full / private mode */ }
+}
+
+/* 4-day roster: compute the shift letter for a given date. */
+function rosterLetter(date) {
+  var anchor = parseYmd(CFG.roster.anchorDate);
+  if (!anchor) return '';
+  var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  var diff = Math.round((d.getTime() - anchor.getTime()) / 86400000);
+  var cyc = CFG.roster.cycle;
+  var idx = ((diff % cyc.length) + cyc.length) % cyc.length;
+  return cyc[idx];
+}
+
+function badgeFor(letter) {
+  var b = el('span', 'badge ' + letter, CFG.roster.labels[letter] || letter);
+  return b;
+}
+
+function renderLegend() {
+  var box = $('roster-legend');
+  if (!box) return;
+  box.innerHTML = '';
+  CFG.roster.cycle.forEach(function (letter) {
+    if (!letter) return;
+    box.appendChild(el('span', 'badge ' + letter, CFG.roster.labels[letter] || letter));
+  });
+  box.appendChild(el('span', 'hint', '點一日可新增活動'));
+}
+
+function renderCalendar() {
+  var y = calCursor.getFullYear(), m = calCursor.getMonth();
+  $('cal-title').textContent = y + '年' + (m + 1) + '月';
+  renderLegend();
+
+  var wd = $('cal-weekdays');
+  wd.innerHTML = '';
+  ['日', '一', '二', '三', '四', '五', '六'].forEach(function (t, i) {
+    var s = el('div', i === 0 ? 'sun' : '', t);
+    wd.appendChild(s);
+  });
+
+  var grid = $('cal-grid');
+  grid.innerHTML = '';
+
+  var firstDow = new Date(y, m, 1).getDay();
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+  var todayKey = ymd(new Date());
+  var events = loadEvents();
+
+  var total = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  for (var i = 0; i < total; i++) {
+    var dayNum = i - firstDow + 1;
+    if (dayNum < 1 || dayNum > daysInMonth) {
+      grid.appendChild(el('div', 'cal-cell empty'));
+      continue;
+    }
+    var date = new Date(y, m, dayNum);
+    var key = ymd(date);
+
+    var cell = el('div', 'cal-cell');
+    if (key === todayKey) cell.classList.add('today');
+    cell.setAttribute('data-date', key);
+
+    var top = el('div', 'cal-top');
+    top.appendChild(el('span', 'cal-day', String(dayNum)));
+    var right = el('div', 'cal-top-right');
+    var wx = forecastByDate[key];
+    if (wx) {
+      var wxEl = el('span', 'cal-wx', iconEmoji(wx.icon));
+      wxEl.title = (wx.max != null ? wx.max : '-') + '° / ' + (wx.min != null ? wx.min : '-') + '°';
+      right.appendChild(wxEl);
+    }
+    var letter = rosterLetter(date);
+    if (letter) right.appendChild(badgeFor(letter));
+    top.appendChild(right);
+    cell.appendChild(top);
+
+    var evs = events[key] || [];
+    if (evs.length) {
+      var evBox = el('div', 'cal-events');
+      evs.slice(0, 2).forEach(function (t) { evBox.appendChild(el('div', 'cal-event', '• ' + t)); });
+      if (evs.length > 2) evBox.appendChild(el('div', 'cal-more', '+' + (evs.length - 2) + ' 項'));
+      cell.appendChild(evBox);
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+/* ------------------------- event modal ------------------------- */
+var modalDateKey = null;
+
+function openModal(key) {
+  modalDateKey = key;
+  var d = parseYmd(key);
+  $('modal-date').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
+    WEEKDAYS[d.getDay()] + '　' + (CFG.roster.labels[rosterLetter(d)] || rosterLetter(d) || '');
+  renderModalEvents();
+  $('modal').classList.remove('hidden');
+  $('modal-input').value = '';
+  setTimeout(function () { $('modal-input').focus(); }, 100);
+}
+
+function closeModal() {
+  $('modal').classList.add('hidden');
+  modalDateKey = null;
+  renderCalendar();
+}
+
+function renderModalEvents() {
+  var box = $('modal-events');
+  box.innerHTML = '';
+  var events = loadEvents();
+  var list = events[modalDateKey] || [];
+  if (!list.length) {
+    box.appendChild(el('div', 'cal-more', '（暫無活動）'));
+    return;
+  }
+  list.forEach(function (text, idx) {
+    var row = el('div', 'modal-event');
+    row.appendChild(el('span', '', text));
+    var del = el('button', '', '✕');
+    del.addEventListener('click', function () {
+      var ev = loadEvents();
+      ev[modalDateKey].splice(idx, 1);
+      if (!ev[modalDateKey].length) delete ev[modalDateKey];
+      saveEvents(ev);
+      renderModalEvents();
+    });
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+
+function addEvent() {
+  var text = $('modal-input').value.trim();
+  if (!text || !modalDateKey) return;
+  var ev = loadEvents();
+  if (!ev[modalDateKey]) ev[modalDateKey] = [];
+  ev[modalDateKey].push(text);
+  saveEvents(ev);
+  $('modal-input').value = '';
+  renderModalEvents();
+}
+
+/* ============================================================
+   5. WIRE UP + REFRESH LOOPS
+   ============================================================ */
+function bindUi() {
+  $('prev-month').addEventListener('click', function () {
+    calCursor.setMonth(calCursor.getMonth() - 1); renderCalendar();
+  });
+  $('next-month').addEventListener('click', function () {
+    calCursor.setMonth(calCursor.getMonth() + 1); renderCalendar();
+  });
+  $('today-btn').addEventListener('click', function () {
+    calCursor = new Date(); calCursor.setDate(1); renderCalendar();
+  });
+
+  $('cal-grid').addEventListener('click', function (e) {
+    var cell = e.target.closest ? e.target.closest('.cal-cell') : null;
+    if (cell && cell.getAttribute('data-date')) openModal(cell.getAttribute('data-date'));
+  });
+
+  $('modal-add-btn').addEventListener('click', addEvent);
+  $('modal-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') addEvent();
+  });
+  $('modal-close').addEventListener('click', closeModal);
+  $('modal').addEventListener('click', function (e) {
+    if (e.target === $('modal')) closeModal();
+  });
+
+  var gear = $('settings-btn');
+  if (gear) gear.addEventListener('click', function () {
+    if (window.openSettings) window.openSettings();
+  });
+
+  var wid = $('weather');
+  if (wid) wid.addEventListener('click', openWeatherDetail);
+  var wclose = $('wm-close');
+  if (wclose) wclose.addEventListener('click', closeWeatherDetail);
+  var wm = $('weather-modal');
+  if (wm) wm.addEventListener('click', function (e) { if (e.target === wm) closeWeatherDetail(); });
+
+  // remember recent interaction so auto-refresh pauses while you use the screen
+  ['pointerdown', 'touchstart', 'keydown', 'input', 'focusin', 'wheel'].forEach(function (ev) {
+    document.addEventListener(ev, markInteraction, true);
+  });
+
+  // refresh when the iPad wakes up
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { tickClock(); renderCalendar(); loadBus(); }
+  });
+}
+
+/* Called by the settings page after you press "儲存並套用". */
+window.reloadDashboard = function () {
+  CFG = (window.DashboardConfig && window.DashboardConfig.load) ? window.DashboardConfig.load() : CFG;
+  normalizeConfig();
+  renderCalendar();
+  buildBusSkeleton();
+  loadBus();
+  loadWeather();
+  scheduleRefresh();
+};
+
+/* ---- pause auto-refresh while the user is interacting ---- */
+var lastInteraction = 0;
+function markInteraction() { lastInteraction = Date.now(); }
+
+function isInteracting() {
+  var s = $('settings'), m = $('modal'), w = $('weather-modal');
+  if (s && !s.classList.contains('hidden')) return true;   // settings open
+  if (m && !m.classList.contains('hidden')) return true;   // adding an event
+  if (w && !w.classList.contains('hidden')) return true;   // weather detail open
+  var ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true; // typing
+  if (Date.now() - lastInteraction < 4000) return true;    // just touched the screen
+  return false;
+}
+
+var refreshTimers = [];
+function refreshSeconds() {
+  var s = Number(CFG.refresh && CFG.refresh.seconds);
+  return (s && s >= 5) ? s : 30;
+}
+function scheduleRefresh() {
+  refreshTimers.forEach(function (t) { clearInterval(t); });
+  refreshTimers = [];
+  var busMs = refreshSeconds() * 1000;
+  refreshTimers.push(setInterval(function () { if (!isInteracting()) loadBus(); }, busMs));
+  refreshTimers.push(setInterval(function () { if (!isInteracting()) renderCalendar(); }, 60000));
+  refreshTimers.push(setInterval(function () { if (!isInteracting()) loadWeather(); }, 600000));
+}
+
+function start() {
+  bindUi();
+  tickClock();
+  renderCalendar();
+  buildBusSkeleton();
+  loadBus();
+  loadWeather();
+  scheduleRefresh();
+
+  setInterval(tickClock, 1000);
+
+  // First ever visit with no saved settings: use GPS to pick the weather district.
+  var hasSaved = false;
+  try { hasSaved = !!localStorage.getItem('homeDashboard.config.v1'); } catch (e) { hasSaved = true; }
+  if (!hasSaved) detectAndApply();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', start);
+} else {
+  start();
+}

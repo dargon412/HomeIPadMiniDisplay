@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>巴士站搜尋工具 · Bus Stop Finder</title>
+  <style>
+    body { font-family: -apple-system, "PingFang HK", sans-serif; margin: 0; background: #0b1220; color: #eef3fb; }
+    header { padding: 18px 20px; background: #131c2e; border-bottom: 1px solid #24324d; }
+    h1 { margin: 0; font-size: 22px; }
+    p.sub { margin: 6px 0 0; color: #93a4c0; font-size: 13px; }
+    main { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .card { background: #131c2e; border: 1px solid #24324d; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; color: #93a4c0; margin-bottom: 6px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; }
+    input, select { background: #1b2740; color: #eef3fb; border: 1px solid #24324d; border-radius: 9px; padding: 10px; font-size: 15px; }
+    input { width: 140px; }
+    button { background: #4da3ff; color: #04122a; border: none; border-radius: 9px; padding: 11px 20px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    button.ghost { background: #1b2740; color: #eef3fb; border: 1px solid #24324d; }
+    .msg { color: #93a4c0; font-size: 14px; }
+    .route-info { font-size: 14px; color: #cdd9ee; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #1b2740; }
+    th { color: #93a4c0; font-weight: 500; font-size: 12px; }
+    .sid { font-family: ui-monospace, Menlo, monospace; color: #4da3ff; }
+    .copy { background: #1b2740; color: #eef3fb; border: 1px solid #24324d; border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+    .note { font-size: 12px; color: #93a4c0; margin-top: 8px; line-height: 1.5; }
+    code { background: #1b2740; padding: 2px 6px; border-radius: 5px; color: #9fd0ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔎 巴士站搜尋工具 <span style="font-size:14px;color:#93a4c0">Bus Stop Finder</span></h1>
+    <p class="sub">搵到巴士站 ID 之後，貼去 config.js。此頁只作設定用途，唔需要放上 iPad。</p>
+  </header>
+
+  <main>
+    <!-- ============ 方法一：用路線搵站 ============ -->
+    <div class="card">
+      <h2 style="margin-top:0;font-size:17px">方法一：用路線搵站</h2>
+      <div class="row">
+        <div class="field">
+          <label>巴士公司</label>
+          <select id="op">
+            <option value="kmb">九巴 / 龍運 KMB</option>
+            <option value="ctb">城巴 Citybus</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>路線號碼</label>
+          <input id="route" placeholder="例如 1A" value="1A">
+        </div>
+        <div class="field">
+          <label>方向</label>
+          <select id="dir">
+            <option value="outbound">去程 outbound</option>
+            <option value="inbound">回程 inbound</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Service type（只九巴）</label>
+          <input id="svc" value="1" style="width:80px">
+        </div>
+        <button id="go">搜尋</button>
+      </div>
+      <div id="out1" style="margin-top:14px"></div>
+    </div>
+
+    <!-- ============ 方法二：用站名搵站（九巴） ============ -->
+    <div class="card">
+      <h2 style="margin-top:0;font-size:17px">方法二：用站名搜尋（九巴）</h2>
+      <div class="row">
+        <div class="field">
+          <label>站名關鍵字（中文或英文）</label>
+          <input id="kw" placeholder="例如 沙田" style="width:220px">
+        </div>
+        <button id="go2">搜尋</button>
+      </div>
+      <div id="out2" style="margin-top:14px"></div>
+      <p class="note">城巴官方冇提供全部站嘅名單，所以城巴請用「方法一」：輸入路線，睇沿途各站。</p>
+    </div>
+  </main>
+
+  <script>
+    function $(id) { return document.getElementById(id); }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+    function getJson(url) { return fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }); }
+
+    /* ---------- 方法一：路線 -> 站 ---------- */
+    function searchByRoute() {
+      var op = $('op').value, route = $('route').value.trim(), dir = $('dir').value, svc = $('svc').value.trim() || '1';
+      var out = $('out1');
+      if (!route) { out.innerHTML = '<p class="msg">請輸入路線號碼。</p>'; return; }
+      out.innerHTML = '<p class="msg">搜尋中…</p>';
+
+      var base, infoUrl;
+      if (op === 'ctb') {
+        base = 'https://rt.data.gov.hk/v2/transport/citybus/';
+        infoUrl = base + 'route/CTB/' + encodeURIComponent(route);
+      } else {
+        base = 'https://data.etabus.gov.hk/v1/transport/kmb/';
+        infoUrl = base + 'route/' + encodeURIComponent(route) + '/' + dir + '/' + encodeURIComponent(svc);
+      }
+      var rsUrl = (op === 'ctb')
+        ? base + 'route-stop/CTB/' + encodeURIComponent(route) + '/' + dir
+        : base + 'route-stop/' + encodeURIComponent(route) + '/' + dir + '/' + encodeURIComponent(svc);
+
+      Promise.all([getJson(infoUrl).catch(function () { return null; }), getJson(rsUrl)])
+        .then(function (res) {
+          var info = res[0], rs = res[1];
+          var stops = (rs && rs.data) ? rs.data : [];
+          if (!stops.length) { out.innerHTML = '<p class="msg">搵唔到路線／方向，請檢查路線號碼。</p>'; return; }
+
+          var head = '';
+          if (info && info.data) {
+            var d = info.data;
+            head = '<div class="route-info"><b>' + esc(route) + '</b> ' +
+              esc(d.orig_tc || d.orig_en || '') + ' → ' + esc(d.dest_tc || d.dest_en || '') + '</div>';
+          }
+
+          // 取得每站名稱
+          var reqs = stops.map(function (s) {
+            var u = (op === 'ctb')
+              ? base + 'stop/' + s.stop
+              : base + 'stop/' + s.stop;
+            return getJson(u).catch(function () { return null; });
+          });
+
+          return Promise.all(reqs).then(function (details) {
+            var rows = stops.map(function (s, i) {
+              var dd = details[i] && details[i].data;
+              var name = dd ? (dd.name_tc || dd.name_en) : '(未知)';
+              return '<tr><td>' + esc(s.seq) + '</td><td class="sid">' + esc(s.stop) + '</td><td>' + esc(name) + '</td>' +
+                '<td><button class="copy" data-copy="' + esc(s.stop) + '">複製 ID</button></td></tr>';
+            }).join('');
+            out.innerHTML = head +
+              '<table><thead><tr><th>#</th><th>Stop ID</th><th>站名</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+              '<p class="note">複製 Stop ID，貼入 config.js 的 <code>stopId</code>。' +
+              (op === 'kmb' ? '九巴 service type 通常係 <code>1</code>。' : '') + '</p>';
+            bindCopy(out);
+          });
+        })
+        .catch(function (e) { out.innerHTML = '<p class="msg">出錯：' + esc(e.message) + '</p>'; });
+    }
+
+    /* ---------- 方法二：九巴站名搜尋 ---------- */
+    function searchByName() {
+      var kw = $('kw').value.trim();
+      var out = $('out2');
+      if (!kw) { out.innerHTML = '<p class="msg">請輸入關鍵字。</p>'; return; }
+      out.innerHTML = '<p class="msg">下載全部九巴站資料中…（第一次會慢少少）</p>';
+
+      getJson('https://data.etabus.gov.hk/v1/transport/kmb/stop/').then(function (j) {
+        var all = (j && j.data) ? j.data : [];
+        var k = kw.toLowerCase();
+        var hits = all.filter(function (s) {
+          return (s.name_tc && s.name_tc.indexOf(kw) >= 0) ||
+                 (s.name_en && s.name_en.toLowerCase().indexOf(k) >= 0);
+        }).slice(0, 60);
+        if (!hits.length) { out.innerHTML = '<p class="msg">搵唔到相關站名。</p>'; return; }
+        var rows = hits.map(function (s) {
+          return '<tr><td class="sid">' + esc(s.stop) + '</td><td>' + esc(s.name_tc) + '<br><span style="color:#93a4c0;font-size:12px">' + esc(s.name_en) + '</span></td>' +
+            '<td><button class="copy" data-copy="' + esc(s.stop) + '">複製 ID</button></td></tr>';
+        }).join('');
+        out.innerHTML = '<table><thead><tr><th>Stop ID</th><th>站名</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+        bindCopy(out);
+      }).catch(function (e) { out.innerHTML = '<p class="msg">出錯：' + esc(e.message) + '</p>'; });
+    }
+
+    function bindCopy(scope) {
+      scope.querySelectorAll('.copy').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var t = b.getAttribute('data-copy');
+          if (navigator.clipboard) navigator.clipboard.writeText(t);
+          b.textContent = '已複製 ✓';
+          setTimeout(function () { b.textContent = '複製 ID'; }, 1200);
+        });
+      });
+    }
+
+    $('go').addEventListener('click', searchByRoute);
+    $('go2').addEventListener('click', searchByName);
+  </script>
+</body>
+</html>

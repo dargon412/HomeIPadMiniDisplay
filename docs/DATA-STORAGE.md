@@ -1,0 +1,112 @@
+# Data storage & configuration
+
+Everything the app remembers lives in the browser's `localStorage`, on the device. Nothing is
+sent to any server except the public bus/weather API calls.
+
+## Two things are stored
+
+| localStorage key | What | Written by | Read by |
+|---|---|---|---|
+| `homeDashboard.config.v1` | Your settings (stops, roster, district, refresh) | settings page | `DashboardConfig.load()` |
+| `homeDashboard.events.v1` | Calendar events | calendar modal | `loadEvents()` |
+
+## How config is resolved
+
+`config.js` (committed to the repo) is only the **default**. On load:
+
+```js
+defaults()                  // from config.js
+  └─ saved = localStorage['homeDashboard.config.v1']
+       └─ result = merge(saved over defaults)
+```
+
+So the effective config is: **saved settings, with config.js filling in anything missing.**
+
+Consequences:
+
+- Editing `config.js` and pushing changes **does not** change an iPad that already has saved
+  settings — the saved copy wins. To apply a new `config.js` default, press
+  **⚙️ → 備份 → ♻️ 還原 config.js 預設** first, then reload.
+- Clearing Safari website data wipes saved settings; the app falls back to `config.js`.
+- `localStorage` is per-browser-profile. A private window starts fresh.
+
+## Config shape
+
+```js
+{
+  weather: { district: "沙田", language: "tc" },
+  roster: {
+    anchorDate: "2026-10-01",          // a date that is a Morning (M) shift
+    cycle: ["M", "N", "L", "L"],       // repeats forever
+    labels: { M: "早", N: "夜", L: "休" } // what to print on the badge
+  },
+  refresh: { seconds: 30 },            // auto-refresh interval
+  busStops: [
+    {
+      name: "我家樓下",                 // display name
+      operator: "kmb",                 // "kmb" | "ctb"
+      stopId: "DCFF4041D0C0ACF8",      // from the stop finder
+      routes: [
+        { route: "1A", serviceType: "1" }
+      ]
+    }
+  ]
+}
+```
+
+## Roster maths
+
+The shift for a date is derived, never stored:
+
+```
+diff  = days between date and anchorDate
+index = ((diff % cycle.length) + cycle.length) % cycle.length
+shift = cycle[index]
+```
+
+The double modulo keeps it correct for dates **before** the anchor. With the default cycle, any
+date exactly equal to the anchor is `M`, the next day `N`, then `L`, `L`, then `M` again.
+
+## Calendar events
+
+```js
+{
+  "2026-10-05": ["覆診 3:00pm", "買餸"],
+  "2026-10-11": ["太太生日"]
+}
+```
+
+- Keyed by local date `YYYY-MM-DD`.
+- Each value is an array of plain strings.
+- Added/removed in the event modal; the array is spliced and the key deleted when empty.
+
+Event text is rendered with `textContent`, so it is safe against HTML injection.
+
+## Backup and restore
+
+The settings page (**⚙️ → 備份**) provides:
+
+| Button | Effect |
+|---|---|
+| ⬇️ 匯出 config.js | Downloads a file that is a drop-in replacement for `config.js` |
+| 📋 複製設定 JSON | Copies the config JSON to the clipboard |
+| ♻️ 還原 config.js 預設 | Deletes the saved config (falls back to `config.js`) |
+| 匯入 JSON 備份 | Loads a previously exported JSON |
+
+**Events are not included in the config export** (they are separate). If you need to back up
+events, read the `homeDashboard.events.v1` value in a browser console and save it.
+
+## Versioning
+
+The `.v1` suffixes are schema versions. If you change the shape of stored data:
+
+1. Bump the key (`v2`) **and** add a migration that reads the old key, or
+2. Add a normalizer that tolerates the old shape.
+
+Do not silently change a shape in place — existing iPads will break.
+
+## Storage limits & failure modes
+
+- `localStorage` is roughly 5 MB per origin. This app uses a few KB.
+- In private browsing, writes can throw. `saveEvents()` and `DashboardConfig.save()` wrap writes
+  in try/catch so the app keeps working in memory even if persistence fails.

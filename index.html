@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="家庭看板">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="manifest" href="manifest.json">
+  <title>家庭看板 · Home Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ======================= HEADER ======================= -->
+  <header id="topbar">
+    <div id="clock">
+      <div id="time">--:--</div>
+      <div id="date">載入中…</div>
+    </div>
+
+    <div id="weather">
+      <span id="weather-icon">⏳</span>
+      <div id="weather-main">
+        <div id="weather-temp">--°C</div>
+        <div id="weather-desc">載入天氣…</div>
+      </div>
+      <div id="weather-extra"></div>
+    </div>
+
+    <div id="forecast"></div>
+
+    <div id="status">準備中…</div>
+    <button id="settings-btn" title="設定 Settings" aria-label="設定">⚙️</button>
+  </header>
+
+  <!-- ======================= MAIN ======================= -->
+  <main>
+    <!-- BUS PANEL -->
+    <section id="bus-panel">
+      <h2 class="panel-title">🚌 巴士到站 <span class="en">Bus Arrivals</span></h2>
+      <div id="bus-list"></div>
+    </section>
+
+    <!-- CALENDAR PANEL -->
+    <section id="cal-panel">
+      <div id="cal-header">
+        <button id="prev-month" aria-label="上個月">‹</button>
+        <h2 id="cal-title">----</h2>
+        <button id="today-btn">今天</button>
+        <button id="next-month" aria-label="下個月">›</button>
+      </div>
+      <div id="cal-weekdays"></div>
+      <div id="cal-grid"></div>
+      <div id="roster-legend"></div>
+    </section>
+  </main>
+
+  <!-- ======================= WEATHER DETAIL ======================= -->
+  <div id="weather-modal" class="hidden">
+    <div class="modal-card">
+      <h3 id="wm-title">今日天氣</h3>
+      <div id="wm-body"></div>
+      <button id="wm-close">關閉</button>
+    </div>
+  </div>
+
+  <!-- ======================= SETTINGS ======================= -->
+  <div id="settings" class="hidden"></div>
+
+  <!-- ======================= EVENT MODAL ======================= -->
+  <div id="modal" class="hidden">
+    <div class="modal-card">
+      <h3 id="modal-date">----</h3>
+      <div id="modal-events"></div>
+      <div class="modal-add">
+        <input id="modal-input" type="text" placeholder="輸入活動，例如：覆診 3:00pm" autocomplete="off">
+        <button id="modal-add-btn">新增</button>
+      </div>
+      <button id="modal-close">關閉</button>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

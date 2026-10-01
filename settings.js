@@ -1,0 +1,554 @@
+/* ============================================================
+   settings.js — 網頁設定頁 On-screen settings
+   Edit your stops, routes, roster and weather by tapping.
+   Changes are saved on this iPad (localStorage) and can be exported
+   back to config.js for safe keeping.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var KEY = 'homeDashboard.config.v1';
+
+  /* ----------------------------- helpers ----------------------------- */
+  function $(id) { return document.getElementById(id); }
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function defaults() {
+    var d = (typeof CONFIG !== 'undefined' && CONFIG) ? CONFIG : {};
+    return clone({
+      title: d.title || '家庭看板',
+      weather: d.weather || { district: '', language: 'tc' },
+      roster: d.roster || { anchorDate: '', cycle: ['M', 'N', 'L', 'L'], labels: { M: '早', N: '夜', L: '休' } },
+      refresh: d.refresh || { seconds: 30 },
+      busStops: d.busStops || []
+    });
+  }
+
+  function load() {
+    var base = defaults();
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) { saved = null; }
+    if (!saved) return base;
+    return {
+      title: saved.title || base.title,
+      weather: Object.assign({}, base.weather, saved.weather || {}),
+      roster: Object.assign({}, base.roster, saved.roster || {}),
+      refresh: Object.assign({}, base.refresh, saved.refresh || {}),
+      busStops: Array.isArray(saved.busStops) ? saved.busStops : base.busStops
+    };
+  }
+
+  function save(cfg) {
+    try { localStorage.setItem(KEY, JSON.stringify(cfg)); }
+    catch (e) { alert('儲存失敗：' + e.message); }
+  }
+
+  function reset() { localStorage.removeItem(KEY); }
+
+  /* Expose to app.js */
+  window.DashboardConfig = { load: load, save: save, reset: reset, defaults: defaults };
+
+  /* ----------------------------- state ----------------------------- */
+  var working = null;   // the config currently being edited
+
+  /* ----------------------------- DOM builders ----------------------------- */
+  function makeSection(title) {
+    var el = document.createElement('div');
+    el.className = 'settings-section';
+    var h = document.createElement('h3');
+    h.textContent = title;
+    el.appendChild(h);
+    var body = document.createElement('div');
+    el.appendChild(body);
+    return { el: el, body: body };
+  }
+
+  function makeField(labelText, input, hint) {
+    var w = document.createElement('label');
+    w.className = 'sf';
+    var l = document.createElement('span');
+    l.className = 'sf-label';
+    l.textContent = labelText;
+    w.appendChild(l);
+    w.appendChild(input);
+    if (hint) {
+      var h = document.createElement('span');
+      h.className = 'sf-hint';
+      h.textContent = hint;
+      w.appendChild(h);
+    }
+    return w;
+  }
+
+  function textInput(value, onInput, placeholder, type) {
+    var i = document.createElement('input');
+    i.className = 'inp';
+    i.type = type || 'text';
+    i.value = (value == null) ? '' : value;
+    if (placeholder) i.placeholder = placeholder;
+    i.addEventListener('input', function () { onInput(i.value); });
+    return i;
+  }
+
+  function selectInput(value, options, onChange) {
+    var s = document.createElement('select');
+    s.className = 'inp';
+    options.forEach(function (o) {
+      var opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      s.appendChild(opt);
+    });
+    s.value = value;
+    s.addEventListener('change', function () { onChange(s.value); });
+    return s;
+  }
+
+  function button(text, cls, onClick) {
+    var b = document.createElement('button');
+    b.className = cls || 'ghost';
+    b.textContent = text;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  /* ============================================================
+     GENERAL
+     ============================================================ */
+  function sectionGeneral() {
+    var s = makeSection('基本 General');
+
+    var dist = document.createElement('select');
+    dist.className = 'inp';
+    dist.addEventListener('change', function () { working.weather.district = dist.value; });
+    s.body.appendChild(makeField('天氣地區 Weather district', dist, '用於顯示氣溫'));
+
+    var locBtn = button('📍 使用我的位置 Use my GPS location', 'ghost', function () {
+      if (!window.detectMyLocation) { alert('定位功能未載入'); return; }
+      locBtn.textContent = '定位中… Detecting…';
+      window.detectMyLocation(function (st, err) {
+        locBtn.textContent = '📍 使用我的位置 Use my GPS location';
+        if (!st) { alert('定位失敗：' + (err || '請允許位置權限')); return; }
+        working.weather.district = st.name;
+        var found = false;
+        for (var i = 0; i < dist.options.length; i++) {
+          if (dist.options[i].value === st.name) { found = true; break; }
+        }
+        if (!found) {
+          var o = document.createElement('option');
+          o.value = st.name; o.textContent = st.name; dist.appendChild(o);
+        }
+        dist.value = st.name;
+      });
+    });
+    s.body.appendChild(locBtn);
+
+    var secs = (working.refresh && working.refresh.seconds) || 30;
+    var refreshSel = selectInput(String(secs), [
+      { value: '10', label: '每 10 秒' },
+      { value: '15', label: '每 15 秒' },
+      { value: '30', label: '每 30 秒' },
+      { value: '60', label: '每 1 分鐘' },
+      { value: '120', label: '每 2 分鐘' },
+      { value: '300', label: '每 5 分鐘' },
+      { value: '600', label: '每 10 分鐘' }
+    ], function (v) {
+      working.refresh = working.refresh || {};
+      working.refresh.seconds = Number(v);
+    });
+    s.body.appendChild(makeField('自動更新間隔 Auto-refresh interval', refreshSel, '你操作畫面時會自動暫停更新'));
+
+    // fill options (async)
+    dist.innerHTML = '<option value="">香港天文台（預設）</option>';
+    dist.value = working.weather.district || '';
+    fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?lang=tc&dataType=rhrread', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var places = ((j.temperature && j.temperature.data) || []).map(function (d) { return d.place; }).filter(Boolean);
+        if (working.weather.district && places.indexOf(working.weather.district) < 0) places.unshift(working.weather.district);
+        places.forEach(function (p) {
+          var o = document.createElement('option'); o.value = p; o.textContent = p; dist.appendChild(o);
+        });
+        dist.value = working.weather.district || '';
+      })
+      .catch(function () { /* offline: keep default option */ });
+
+    return s.el;
+  }
+
+  /* ============================================================
+     ROSTER
+     ============================================================ */
+  function sectionRoster() {
+    var s = makeSection('太太更表 Roster');
+
+    s.body.appendChild(makeField('早更基準日 Anchor date (M day)',
+      textInput(working.roster.anchorDate, function (v) { working.roster.anchorDate = v; }, '', 'date'),
+      '揀一日係「早更 M」，之後每 4 日循環'));
+
+    s.body.appendChild(makeField('循環週期 Cycle (逗號分隔)',
+      textInput(working.roster.cycle.join(','), function (v) {
+        var arr = v.split(',').map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean);
+        if (arr.length) working.roster.cycle = arr;
+      }, 'M,N,L,L'),
+      '預設 M,N,L,L'));
+
+    var labRow = document.createElement('div');
+    labRow.className = 'sf-row';
+    ['M', 'N', 'L'].forEach(function (k) {
+      var inp = textInput(working.roster.labels[k], function (v) { working.roster.labels[k] = v; }, k);
+      inp.style.width = '70px';
+      labRow.appendChild(makeField('代號 ' + k + ' 顯示為', inp));
+    });
+    s.body.appendChild(labRow);
+
+    return s.el;
+  }
+
+  /* ============================================================
+     BUS STOPS
+     ============================================================ */
+  function sectionStops() {
+    var s = makeSection('巴士站 Bus stops');
+
+    var list = document.createElement('div');
+    list.className = 'stop-edit-list';
+    list.id = 'stop-edit-list';
+    s.body.appendChild(list);
+    fillStopList(list);
+
+    s.body.appendChild(button('＋ 加巴士站 Add stop', 'primary', function () {
+      working.busStops.push({ name: '', operator: 'kmb', stopId: '', routes: [{ route: '', serviceType: '1' }] });
+      refreshStopList();
+    }));
+
+    s.body.appendChild(searchHelper());
+    return s.el;
+  }
+
+  function stopEditor(stop, si) {
+    var card = document.createElement('div');
+    card.className = 'stop-edit';
+
+    var head = document.createElement('div');
+    head.className = 'stop-edit-head';
+    head.appendChild(textInput(stop.name, function (v) { stop.name = v; }, '站名，例如：我家樓下'));
+    head.appendChild(button('🗑', 'icon-btn', function () {
+      working.busStops.splice(si, 1); refreshStopList();
+    }));
+    card.appendChild(head);
+
+    var meta = document.createElement('div');
+    meta.className = 'sf-row';
+    meta.appendChild(makeField('公司 Operator',
+      selectInput(stop.operator || 'kmb', [
+        { value: 'kmb', label: '九巴 / 龍運 KMB' },
+        { value: 'ctb', label: '城巴 Citybus' }
+      ], function (v) { stop.operator = v; })));
+    var sid = textInput(stop.stopId, function (v) { stop.stopId = v; }, 'Stop ID');
+    sid.className = 'inp mono';
+    meta.appendChild(makeField('Stop ID', sid));
+    card.appendChild(meta);
+
+    var routesBox = document.createElement('div');
+    routesBox.className = 'route-edit-list';
+    (stop.routes || []).forEach(function (r, ri) {
+      var row = document.createElement('div');
+      row.className = 'route-edit';
+      row.appendChild(textInput(r.route, function (v) { r.route = v; }, '路線'));
+      row.appendChild(textInput(r.serviceType || '', function (v) { r.serviceType = v; }, 'serviceType', 'text'));
+      row.appendChild(button('✕', 'icon-btn', function () {
+        stop.routes.splice(ri, 1); refreshStopList();
+      }));
+      routesBox.appendChild(row);
+    });
+    card.appendChild(routesBox);
+
+    card.appendChild(button('＋ 加路線 Add route', 'ghost small', function () {
+      stop.routes = stop.routes || [];
+      stop.routes.push({ route: '', serviceType: stop.operator === 'ctb' ? undefined : '1' });
+      refreshStopList();
+    }));
+
+    return card;
+  }
+
+  /* ---------------- bus stop finder (inside settings) ---------------- */
+  function searchHelper() {
+    var box = document.createElement('div');
+    box.className = 'search-helper';
+
+    var h = document.createElement('h4');
+    h.textContent = '🔍 搵巴士站 Find a stop';
+    box.appendChild(h);
+
+    var op = 'kmb', dir = 'outbound', svc = '1';
+    var row = document.createElement('div');
+    row.className = 'sf-row';
+    row.appendChild(makeField('公司',
+      selectInput('kmb', [
+        { value: 'kmb', label: '九巴 / 龍運' },
+        { value: 'ctb', label: '城巴' }
+      ], function (v) { op = v; })));
+    var routeInp = textInput('', function (v) { routeInp._v = v; }, '路線，例如 1A');
+    row.appendChild(makeField('路線', routeInp));
+    row.appendChild(makeField('方向',
+      selectInput('outbound', [
+        { value: 'outbound', label: '去程' },
+        { value: 'inbound', label: '回程' }
+      ], function (v) { dir = v; })));
+    row.appendChild(makeField('serviceType',
+      textInput('1', function (v) { svc = v; }, '1')));
+    row.appendChild(button('搜尋', 'primary', function () {
+      doSearch(box, op, (routeInp.value || '').trim(), dir, svc || '1');
+    }));
+    box.appendChild(row);
+
+    var results = document.createElement('div');
+    results.className = 'search-results';
+    box.appendChild(results);
+
+    return box;
+  }
+
+  function doSearch(box, op, route, dir, svc) {
+    var results = box.querySelector('.search-results');
+    if (!route) { results.innerHTML = '<p class="sf-hint">請輸入路線號碼。</p>'; return; }
+    results.innerHTML = '<p class="sf-hint">搜尋中…</p>';
+
+    var rsUrl, infoUrl;
+    if (op === 'ctb') {
+      rsUrl = 'https://rt.data.gov.hk/v2/transport/citybus/route-stop/CTB/' + encodeURIComponent(route) + '/' + dir;
+      infoUrl = 'https://rt.data.gov.hk/v2/transport/citybus/route/CTB/' + encodeURIComponent(route);
+    } else {
+      rsUrl = 'https://data.etabus.gov.hk/v1/transport/kmb/route-stop/' + encodeURIComponent(route) + '/' + dir + '/' + encodeURIComponent(svc);
+      infoUrl = 'https://data.etabus.gov.hk/v1/transport/kmb/route/' + encodeURIComponent(route) + '/' + dir + '/' + encodeURIComponent(svc);
+    }
+
+    function stopUrl(id) {
+      return (op === 'ctb')
+        ? 'https://rt.data.gov.hk/v2/transport/citybus/stop/' + id
+        : 'https://data.etabus.gov.hk/v1/transport/kmb/stop/' + id;
+    }
+
+    Promise.all([fetch(infoUrl, { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return null; }),
+                 fetch(rsUrl, { cache: 'no-store' }).then(function (r) { return r.json(); })])
+      .then(function (res) {
+        var info = res[0], rs = res[1];
+        var stops = (rs && rs.data) ? rs.data : [];
+        if (!stops.length) { results.innerHTML = '<p class="sf-hint">搵唔到，請檢查路線／方向。</p>'; return; }
+
+        var head = '';
+        if (info && info.data) {
+          var d = info.data;
+          head = '<div class="sf-hint">' + esc(route) + ' ' + esc(d.orig_tc || d.orig_en || '') + ' → ' + esc(d.dest_tc || d.dest_en || '') + '</div>';
+        }
+
+        var details = stops.map(function (s) {
+          return fetch(stopUrl(s.stop), { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return null; });
+        });
+
+        return Promise.all(details).then(function (ds) {
+          var wrap = document.createElement('div');
+          wrap.innerHTML = head;
+          stops.forEach(function (s, i) {
+            var dd = ds[i] && ds[i].data;
+            var name = dd ? (dd.name_tc || dd.name_en) : '(未知)';
+            var row = document.createElement('div');
+            row.className = 'search-row';
+            var info2 = document.createElement('div');
+            info2.className = 'search-info';
+            info2.innerHTML = '<b>' + esc(name) + '</b><span class="mono">' + esc(s.stop) + '</span>';
+            row.appendChild(info2);
+            row.appendChild(button('加入', 'small', function () {
+              addFoundStop(op, route, svc, s.stop, name);
+              row.querySelector('button').textContent = '已加入 ✓';
+            }));
+            wrap.appendChild(row);
+          });
+          results.innerHTML = '';
+          results.appendChild(wrap);
+        });
+      })
+      .catch(function (e) { results.innerHTML = '<p class="sf-hint">出錯：' + esc(e.message) + '</p>'; });
+  }
+
+  function addFoundStop(op, route, svc, stopId, name) {
+    var existing = null;
+    for (var i = 0; i < working.busStops.length; i++) {
+      var s = working.busStops[i];
+      if (s.stopId === stopId && (s.operator || 'kmb') === op) { existing = s; break; }
+    }
+    var newRoute = { route: route };
+    if (op === 'kmb') newRoute.serviceType = svc;
+
+    if (existing) {
+      existing.routes = existing.routes || [];
+      var dup = existing.routes.some(function (r) { return r.route === route; });
+      if (!dup) existing.routes.push(newRoute);
+    } else {
+      working.busStops.push({
+        name: name,
+        operator: op,
+        stopId: stopId,
+        routes: [newRoute]
+      });
+    }
+    refreshStopList();
+  }
+
+  /* ============================================================
+     BACKUP
+     ============================================================ */
+  function sectionBackup() {
+    var s = makeSection('備份 Backup');
+
+    var row = document.createElement('div');
+    row.className = 'sf-row';
+
+    row.appendChild(button('⬇️ 匯出 config.js', 'ghost', function () {
+      download('config.js', '/* Generated from the settings page */\nconst CONFIG = ' + JSON.stringify(working, null, 2) + ';\n', 'text/javascript');
+    }));
+    row.appendChild(button('📋 複製設定 JSON', 'ghost', function () {
+      var text = JSON.stringify(working, null, 2);
+      if (navigator.clipboard) navigator.clipboard.writeText(text);
+      alert('已複製到剪貼簿。');
+    }));
+    row.appendChild(button('♻️ 還原 config.js 預設', 'ghost danger', function () {
+      if (confirm('確定還原為 config.js 的預設值？本機修改會清除。')) {
+        reset();
+        working = load();
+        rerender();
+      }
+    }));
+    s.body.appendChild(row);
+
+    // import
+    var file = document.createElement('input');
+    file.type = 'file';
+    file.accept = '.json,application/json';
+    file.className = 'inp';
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var parsed = JSON.parse(reader.result);
+          if (parsed && parsed.busStops) {
+            working = {
+              title: parsed.title || working.title,
+              weather: Object.assign({}, working.weather, parsed.weather || {}),
+              roster: Object.assign({}, working.roster, parsed.roster || {}),
+              busStops: parsed.busStops
+            };
+            rerender();
+          } else { alert('檔案格式唔啱。'); }
+        } catch (e) { alert('讀取失敗：' + e.message); }
+      };
+      reader.readAsText(f);
+    });
+    s.body.appendChild(makeField('匯入 JSON 備份', file));
+
+    return s.el;
+  }
+
+  function download(filename, text, mime) {
+    try {
+      var blob = new Blob([text], { type: mime || 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    } catch (e) { alert('下載失敗：' + e.message); }
+  }
+
+  /* ============================================================
+     RENDER / OPEN / CLOSE
+     ============================================================ */
+  function render() {
+    var box = $('settings');
+    box.innerHTML = '';
+
+    var panel = document.createElement('div');
+    panel.className = 'settings-panel';
+
+    var head = document.createElement('div');
+    head.className = 'settings-head';
+    var t = document.createElement('h2');
+    t.textContent = '⚙️ 設定 Settings';
+    head.appendChild(t);
+    head.appendChild(button('✕ 關閉', 'ghost', close));
+    panel.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'settings-body';
+    body.appendChild(sectionGeneral());
+    body.appendChild(sectionRoster());
+    body.appendChild(sectionStops());
+    body.appendChild(sectionBackup());
+    panel.appendChild(body);
+
+    var foot = document.createElement('div');
+    foot.className = 'settings-foot';
+    foot.appendChild(button('💾 儲存並套用 Save & apply', 'primary', function () {
+      save(working);
+      close();
+      if (window.reloadDashboard) window.reloadDashboard();
+    }));
+    panel.appendChild(foot);
+
+    box.appendChild(panel);
+  }
+
+  function rerender() {
+    var body = document.querySelector('#settings .settings-body');
+    var top = body ? body.scrollTop : 0;
+    render();
+    var nb = document.querySelector('#settings .settings-body');
+    if (nb) nb.scrollTop = top;
+  }
+
+  /* Fill a stop-list container (used during render and on later updates). */
+  function fillStopList(list) {
+    list.innerHTML = '';
+    if (!working.busStops.length) {
+      var empty = document.createElement('p');
+      empty.className = 'sf-hint';
+      empty.textContent = '仲未有巴士站，用下面「＋ 加巴士站」或「🔍 搵站」新增。';
+      list.appendChild(empty);
+    }
+    working.busStops.forEach(function (stop, si) {
+      list.appendChild(stopEditor(stop, si));
+    });
+  }
+
+  /* Rebuild only the editable stop list (keeps search results on screen). */
+  function refreshStopList() {
+    var list = $('stop-edit-list');
+    if (!list) { rerender(); return; }
+    fillStopList(list);
+  }
+
+  function open() {
+    working = load();
+    render();
+    $('settings').classList.remove('hidden');
+  }
+
+  function close() {
+    $('settings').classList.add('hidden');
+  }
+
+  window.openSettings = open;
+})();

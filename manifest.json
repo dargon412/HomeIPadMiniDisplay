@@ -1,0 +1,9 @@
+{
+  "name": "家庭看板 Home Dashboard",
+  "short_name": "家庭看板",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220"
+}

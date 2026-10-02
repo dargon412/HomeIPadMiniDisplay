@@ -6,13 +6,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- **Day taps only worked on some days; single tap did nothing but rapid taps opened the popup.**
+  The popup opens on `touchend`, then the browser fires the synthetic `click` that belongs to the
+  *same* tap. The capture guard saw `modalIsOpen() === true`, read that click as a tap *outside* the
+  popup, and closed it again — so the popup flashed open and shut. The guard's 400 ms `done` flag
+  meant a quick second tap slipped through, which is why rapid taps appeared to work. Now
+  `openModal()` records `modalOpenedAt`, and the guard ignores any tap event within 400 ms of opening,
+  so the opening gesture can never close the popup it just opened. This also stops a tap on the
+  calendar from switching the open popup's date.
 - **Tapping a calendar day while the add-event popup was open switched the popup to that day.**
   The device log showed the tap target was `DIV#modal` (the overlay), **not** a calendar cell, yet
-  the day cell handler still ran. The earlier guard only acted when the target was inside the
-  calendar, so it bailed out and did nothing. The capture-phase guard now blocks by **exclusion**:
-  while the popup is open it swallows every `touchstart`/`touchend`/`click` except those on the
-  popup's own controls, and closes the popup once per gesture. `openModal()` also refuses to switch
-  the date of an already-open popup as a safety net.
+  the day cell handler still ran. The guard now blocks by **exclusion**: while the popup is open it
+  swallows every `touchstart`/`touchend`/`click` except those on the popup's own controls.
 - Import failed with `JSON.parse: unexpected character at line 1 column 1` when fed the exported
   `config.js` (a comment plus `const CONFIG = ...;`). `parseBackup()` now unwraps both formats.
 - **Taps unreliable on iPadOS.** The ⚙️ gear, calendar day taps and the weather box did not

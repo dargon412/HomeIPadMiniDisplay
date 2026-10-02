@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.14';
+var APP_VERSION = '2026-10-02.15';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -655,6 +655,10 @@ function renderCalendar() {
 
 /* ------------------------- event modal ------------------------- */
 var modalDateKey = null;
+/* Timestamp of the last openModal(). A tap that opens the popup also emits a
+   synthetic `click` a moment later; without this, that click would be read as
+   a tap *outside* the popup and close it again (the "flash" bug). */
+var modalOpenedAt = 0;
 
 /* True while the event popup is on screen. Calendar day taps are ignored in
    this state so a stray tap on a day behind the popup cannot switch its date. */
@@ -676,6 +680,7 @@ function openModal(key) {
   renderModalEvents();
   $('modal').classList.remove('hidden');
   $('modal-input').value = '';
+  modalOpenedAt = Date.now();
   mark('openModal ' + key + ' -> visible=' + !$('modal').classList.contains('hidden'));
 }
 
@@ -790,17 +795,16 @@ function bindUi() {
   function guardCalendarWhileModalOpen(e) {
     if (!modalIsOpen()) return;
     if (isInsideModalCard(e.target)) return;   // let the popup's own controls work
+    // Ignore the synthetic click/touchend that belongs to the SAME tap which
+    // just opened the popup; otherwise the popup flashes open then closed.
+    if (Date.now() - modalOpenedAt < 400) return;
     // Block the tap from reaching any day cell...
     e.stopPropagation();
     if (e.cancelable) e.preventDefault();
-    // ...and close the popup exactly once for this gesture.
+    // ...and close the popup.
     if (e.type === 'touchend' || e.type === 'click') {
-      if (!guardCalendarWhileModalOpen.done) {
-        guardCalendarWhileModalOpen.done = true;
-        mark('tap outside popup while open -> closeModal');
-        closeModal();
-        setTimeout(function () { guardCalendarWhileModalOpen.done = false; }, 400);
-      }
+      mark('tap outside popup while open -> closeModal');
+      closeModal();
     }
   }
   ['touchstart', 'touchend', 'click'].forEach(function (ev) {

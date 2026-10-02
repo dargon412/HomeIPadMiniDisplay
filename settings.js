@@ -27,6 +27,7 @@
       weather: d.weather || { district: '', language: 'tc' },
       roster: d.roster || { anchorDate: '', cycle: ['M', 'N', 'L', 'L'], labels: { M: '早', N: '夜', L: '休' } },
       refresh: d.refresh || { seconds: 30 },
+      layout: d.layout || { busWidth: 20 },
       busStops: d.busStops || []
     });
   }
@@ -41,6 +42,7 @@
       weather: Object.assign({}, base.weather, saved.weather || {}),
       roster: Object.assign({}, base.roster, saved.roster || {}),
       refresh: Object.assign({}, base.refresh, saved.refresh || {}),
+      layout: Object.assign({}, base.layout, saved.layout || {}),
       busStops: Array.isArray(saved.busStops) ? saved.busStops : base.busStops
     };
   }
@@ -164,6 +166,32 @@
       working.refresh.seconds = Number(v);
     });
     s.body.appendChild(makeField('自動更新間隔 Auto-refresh interval', refreshSel, '你操作畫面時會自動暫停更新'));
+
+    // Bus panel width (landscape only) — live preview by setting the CSS var.
+    var busPct = (working.layout && working.layout.busWidth) || 20;
+    var busVal = document.createElement('span');
+    busVal.className = 'range-val';
+    busVal.textContent = busPct + '%';
+    var busRange = document.createElement('input');
+    busRange.type = 'range';
+    busRange.className = 'inp range';
+    busRange.min = '12';
+    busRange.max = '45';
+    busRange.step = '1';
+    busRange.value = String(busPct);
+    busRange.addEventListener('input', function () {
+      var v = Number(busRange.value);
+      working.layout = working.layout || {};
+      working.layout.busWidth = v;
+      busVal.textContent = v + '%';
+      document.documentElement.style.setProperty('--bus-w', v + '%');  // live preview
+    });
+    var busWrap = document.createElement('div');
+    busWrap.className = 'range-wrap';
+    busWrap.appendChild(busRange);
+    busWrap.appendChild(busVal);
+    s.body.appendChild(makeField('巴士面板闊度 Bus panel width', busWrap,
+      '打橫時適用；其餘空間就係月曆（建議 15–30%）'));
 
     // fill options (async)
     dist.innerHTML = '<option value="">香港天文台（預設）</option>';
@@ -459,6 +487,7 @@
             weather: Object.assign({}, working.weather, cfg.weather || {}),
             roster: Object.assign({}, working.roster, cfg.roster || {}),
             refresh: Object.assign({}, working.refresh, cfg.refresh || {}),
+            layout: Object.assign({}, working.layout, cfg.layout || {}),
             busStops: cfg.busStops
           };
 

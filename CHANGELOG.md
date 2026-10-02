@@ -5,6 +5,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Adjustable bus-panel width.** A new `layout.busWidth` setting (percent, default 20) controls
+  the landscape split; the calendar takes the remaining width. It is exposed as a **slider in
+  ⚙️ → 基本 General** with a live preview, is stored in `localStorage`, saved in the backup file,
+  and applied via a `--bus-w` CSS variable. Values outside 12–60 are clamped to 20.
+
 ### Changed
 - **In landscape the bus panel is now half its former width (40% → 20%), and the calendar takes
   the rest (80%).** Because the column is narrower, the bus panel's typography was scaled down to

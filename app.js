@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.20';
+var APP_VERSION = '2026-10-02.21';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -181,9 +181,20 @@ function normalizeConfig() {
   CFG.busStops = CFG.busStops || [];
   CFG.weather = CFG.weather || {};
   CFG.refresh = CFG.refresh || { seconds: 30 };
+  CFG.layout = CFG.layout || {};
+  var bw = Number(CFG.layout.busWidth);
+  CFG.layout.busWidth = (bw >= 12 && bw <= 60) ? bw : 20;
   LANG = CFG.weather.language || 'tc';
 }
 normalizeConfig();
+
+/* Push the bus-panel width into CSS (only affects landscape layout). */
+function applyLayout() {
+  var bw = Number(CFG.layout && CFG.layout.busWidth);
+  if (!(bw >= 12 && bw <= 60)) bw = 20;
+  document.documentElement.style.setProperty('--bus-w', bw + '%');
+}
+applyLayout();
 
 /* ============================================================
    1. CLOCK
@@ -880,6 +891,7 @@ function bindUi() {
 window.reloadDashboard = function () {
   CFG = (window.DashboardConfig && window.DashboardConfig.load) ? window.DashboardConfig.load() : CFG;
   normalizeConfig();
+  applyLayout();
   renderCalendar();
   buildBusSkeleton();
   loadBus();

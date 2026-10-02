@@ -10,6 +10,10 @@
      together if you resize the header. Overridden on wide screens below. */
   --topbar-h: 104px;
 
+  /* Landscape split: bus panel width. app.js sets this from the saved
+     `layout.busWidth` setting; the calendar takes the remainder. */
+  --bus-w: 20%;
+
   --bg: #0b1220;
   --panel: #131c2e;
   --panel-2: #1b2740;
@@ -362,6 +366,19 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 .inp.mono { font-family: ui-monospace, Menlo, monospace; }
 select.inp { background-image: none; }
 
+/* slider (bus panel width) */
+.range-wrap { display: flex; align-items: center; gap: 12px; }
+.inp.range { padding: 0; height: 8px; border: none; background: var(--line); border-radius: 999px; flex: 1; }
+.inp.range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #04122a; cursor: pointer;
+}
+.inp.range::-moz-range-thumb {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--accent);
+  border: 2px solid #04122a; cursor: pointer;
+}
+.range-val { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+
 button.primary {
   background: var(--accent); color: #04122a; border: none; border-radius: 10px;
   padding: 11px 18px; font-size: 15px; font-weight: 700; cursor: pointer;
@@ -406,8 +423,8 @@ button.icon-btn {
 @media (orientation: landscape) and (min-width: 1100px) {
   :root { --topbar-h: 122px; }
 
-  /* Bus panel gets half the width it used to; the calendar takes the rest. */
-  main { grid-template-columns: 20% 80%; gap: 12px; padding: 12px; }
+  /* Bus panel width is user-adjustable (--bus-w); the calendar takes the rest. */
+  main { grid-template-columns: var(--bus-w) minmax(0, 1fr); gap: 12px; padding: 12px; }
 
   #time { font-size: 44px; }
   #date { font-size: 15px; }

@@ -21,8 +21,9 @@ Editing tip: hard-reload after changing CSS/JS to beat the cache — `⌘ + Shif
 
 ## Testing at the real screen size
 
-The iPad mini 4 is **1024 × 768 landscape** (and 1536 physical px wide @2x). Use the browser
-responsive mode set to that size. The layout has a **portrait fallback** under
+The target is a **Samsung Galaxy Tab A9: 1340 × 800 landscape (5:3)**. Use the browser responsive
+mode set to that size. A **wide-landscape media query** (`min-width: 1100px`) provides the tuning
+for this screen; the base layout is relative and there is a **portrait fallback** under
 `@media (orientation: portrait)`.
 
 Check every change at 1024×768, because the header is dense and the calendar grid has exactly
@@ -30,7 +31,8 @@ enough room for 6 week-rows.
 
 ## Browser compatibility rules
 
-The only real target is **iPadOS 15 Safari**. Keep the JavaScript conservative:
+The target is **Chrome on Android**. The JavaScript is still kept conservative so it also runs on
+older WebKit (e.g. an iPad mini 4 running iPadOS 15), which is a handy safety margin:
 
 **Available:** `var`/`let`/`const`, arrow functions, template literals, `Promise`, `fetch`,
 `AbortController`, `classList`, `URL`/`Blob`, `navigator.clipboard` (guarded), `Object.assign`.
@@ -74,11 +76,12 @@ Wrapped in an IIFE that exposes two globals:
 Internally it keeps a `working` copy of the config while you edit, and only writes it when you
 press **儲存並套用**.
 
-## Tapping on iPadOS — use `onTap()`
+## Tapping — always use `onTap()`
 
 **Do not bind `click` directly to non-`<button>` elements.** On iPadOS Safari a tap that moves even
 one pixel is classified as a scroll and no `click` is fired. That silently broke the settings gear,
-calendar day taps and the weather box while `<button>` elements kept working.
+calendar day taps and the weather box while `<button>` elements kept working. Android Chrome is
+more forgiving, but the helper is used everywhere so behaviour stays consistent across devices.
 
 Always use the helper:
 
@@ -132,7 +135,8 @@ The header's height is used to size `main`. Update **both**:
 
 The app is plain browser code, so the browser's own tools are best:
 
-- **Safari on the Mac:** with the iPad connected, *Develop → [iPad] → [page]*.
+- **Android:** enable USB debugging and use `chrome://inspect` from desktop Chrome.
+- **`?debug=1`:** on the device itself, adds the on-screen tap-log panel (see `initTapDebug`).
 - **Console:** `DashboardConfig.load()` prints the effective config; `localStorage.getItem('homeDashboard.config.v1')` prints the raw saved copy.
 - A syntax error in `config.js` blanks the page. Check the console first.
 

@@ -5,6 +5,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Target device is now a Samsung Galaxy Tab A9** (1340 × 800, 5:3, Chrome) instead of an
+  iPad mini 4. The layout was already relative, so the change is tuning rather than a rewrite:
+  a `--topbar-h` variable ties the header height to the `main` calc, and a wide-landscape media
+  query (`min-width: 1100px`) enlarges the header, forecast strip, bus chips and calendar text,
+  and shifts the split to 40% / 60%. Verified with live API data at 1340 × 800.
+- Repository renamed to `dargon412/HomeMiniDisplay`; the Pages URL is now
+  <https://dargon412.github.io/HomeMiniDisplay/>.
+
 ### Fixed
 - **Taps unreliable on iPadOS.** The ⚙️ gear, calendar day taps and the weather box did not
   respond on the iPad, while the month buttons did. `addEventListener('click')` is not dependable

@@ -6,7 +6,7 @@ This document explains how the Home Dashboard works, so you can safely change it
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  iPad mini 4 (iPadOS 15) — Safari                            │
+│  Samsung Galaxy Tab A9 (Android) — Chrome, landscape        │
 │                                                             │
 │   index.html ──> style.css                                  │
 │       │                                                     │
@@ -138,8 +138,11 @@ or bump the key rather than silently breaking existing installs.
 
 ## Constraints to remember
 
-- **Target browser is iPadOS 15 Safari.** Avoid: `??`, `?.`, `Array.prototype.at`, top-level
-  `await`, class fields, `Intl` extras. ES5-ish + Promises + `fetch` is safe.
+- **Target device is a Samsung Galaxy Tab A9, 1340 × 800 landscape (5:3), Chrome.** The code also
+  stays conservative enough for older WebKit, so avoid `??`, `?.`, `Array.prototype.at`, top-level
+  `await` and class fields. ES5-ish + Promises + `fetch` is safe everywhere.
+- **A wide-landscape media query (min-width 1100px)** supplies the Tab A9 tuning. The base layout
+  is relative, so narrow screens still work.
 - **Never break `config.js` parsing** — a syntax error there blanks the whole page.
 - **Keep the header height in sync** with `main { height: calc(100% - 104px) }` in `style.css`.
 - Everything must degrade gracefully when offline: `fetchJson` has a timeout, and each fetch is
@@ -153,5 +156,5 @@ or bump the key rather than silently breaking existing installs.
 3. Add styles in `style.css`, keeping the 1024×768 landscape target in mind.
 4. Write the render function in `app.js`; make it idempotent (safe to call repeatedly).
 5. If it fetches data, add the loop in `scheduleRefresh()` and respect `isInteracting()`.
-6. Test in a browser at 1024×768, then on the iPad.
+6. Test in a browser at 1340×800, then on the tablet.
 7. Update `CHANGELOG.md` and the relevant doc.

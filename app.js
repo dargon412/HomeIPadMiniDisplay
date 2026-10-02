@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.24';
+var APP_VERSION = '2026-10-02.25';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -191,6 +191,8 @@ function normalizeConfig() {
     var fv = Number(CFG.layout.fonts[g]);
     CFG.layout.fonts[g] = (fv >= 0.6 && fv <= 2) ? fv : 1;
   }
+  var ww = Number(CFG.layout.weatherWidth);
+  CFG.layout.weatherWidth = (ww >= 15 && ww <= 100) ? ww : 30;
   LANG = CFG.weather.language || 'tc';
 }
 normalizeConfig();
@@ -225,6 +227,11 @@ function applyLayout() {
     if (!(f >= 0.6 && f <= 2)) f = 1;
     root.setProperty('--fs-' + k, String(f));
   }
+
+  // Current-weather box width (percent of the header), clamped 15-100.
+  var ww = Number(CFG.layout && CFG.layout.weatherWidth);
+  if (!(ww >= 15 && ww <= 100)) ww = 30;
+  root.setProperty('--weather-w', ww + '%');
 }
 applyLayout();
 

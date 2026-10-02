@@ -17,6 +17,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   22–55%).
 
 ### Added
+- **Adjustable current-weather box width.** New `layout.weatherWidth` (percent of the header,
+  default 30, range 15–100) sets a slider in **⚙️ → 基本 General** with a live preview. Handy in
+  **portrait**, where the box previously stayed narrow; the 7-day forecast is unaffected and the
+  description text is no longer hard-capped, so a wider box actually shows more. Stored in
+  `localStorage` and included in the backup/import.
 - **Adjustable font sizes — four independent sliders.** New `layout.fonts.{clock,bus,cal,titles}`
   settings (multipliers, default 1, range 0.6–2) scale the clock/weather/forecast, the bus
   arrivals, the calendar (days, events, weather icons, roster badges) and the titles/legend

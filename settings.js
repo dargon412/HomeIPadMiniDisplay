@@ -27,7 +27,7 @@
       weather: d.weather || { district: '', language: 'tc' },
       roster: d.roster || { anchorDate: '', cycle: ['M', 'N', 'L', 'L'], labels: { M: '早', N: '夜', L: '休' } },
       refresh: d.refresh || { seconds: 30 },
-      layout: d.layout || { busWidth: 20, fonts: { clock: 1, bus: 1, cal: 1, titles: 1 } },
+      layout: d.layout || { busWidth: 20, fonts: { clock: 1, bus: 1, cal: 1, titles: 1 }, weatherWidth: 30 },
       busStops: d.busStops || []
     });
   }
@@ -268,6 +268,19 @@
         if (bh < 22) bh = 22;
         if (bh > 55) bh = 55;
         root.setProperty('--bus-h', bh + '%');
+      }
+    }));
+
+    // Current-weather box width (portrait-friendly) — live preview.
+    var wwPct = (working.layout && working.layout.weatherWidth) || 30;
+    s.body.appendChild(rangeField('即日天氣框寬度 Weather box width',
+      '打直時特別有用（建議 30–100%）', {
+      min: 15, max: 100, step: 5, value: wwPct,
+      format: function (v) { return v + '%'; },
+      onInput: function (v) {
+        working.layout = working.layout || {};
+        working.layout.weatherWidth = v;
+        document.documentElement.style.setProperty('--weather-w', v + '%');
       }
     }));
 

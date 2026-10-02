@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.12';
+var APP_VERSION = '2026-10-02.13';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -664,6 +664,10 @@ function modalIsOpen() {
 
 function openModal(key) {
   if (!key) return;
+  // Safety net: never switch the date of an already-open popup. The capture
+  // guard in bindUi() should prevent this ever being reached, but some
+  // browsers dispatch a stray click that slips past it.
+  if (modalIsOpen() && modalDateKey && modalDateKey !== key) return;
   modalDateKey = key;
   var d = parseYmd(key);
   $('modal-date').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
@@ -769,31 +773,32 @@ function bindUi() {
   // bindCellTap(), so nothing to wire here. A grid-level handler also
   // catches taps on empty cells (which should do nothing).
 
-  // HARD GUARD: while the event popup is open, a tap on the calendar must
-  // close the popup and must NOT open a day. Doing this in the CAPTURE phase
-  // stops the event reaching the cell handlers at all, which a check inside
-  // the handler could not do (a stray click could fire the cell handler
-  // after the overlay had already closed the popup).
-  function guardCalendarWhileModalOpen(e) {
-    if (!modalIsOpen()) return;
-    var node = e.target;
-    var inCalendar = false;
+  // HARD GUARD: while the event popup is open, any tap that is NOT on the
+  // popup's own controls must close the popup and must NOT open a day.
+  //
+  // Note the target can be #modal (the overlay) rather than a .cal-* element,
+  // yet the day cell handler still fires on some browsers. So we block by
+  // EXCLUSION: allow only the popup's own interactive parts, block the rest.
+  function isInsideModalCard(node) {
     while (node && node !== document) {
-      if (node.id === 'cal-grid' || node.id === 'cal-panel' ||
-          (node.className && String(node.className).indexOf('cal-') === 0)) {
-        inCalendar = true; break;
-      }
+      if (node.id === 'modal-events' || node.id === 'modal-input' ||
+          node.id === 'modal-add-btn' || node.id === 'modal-close') return true;
+      if (node.className && String(node.className).indexOf('modal-') === 0) return true;
       node = node.parentNode;
     }
-    if (!inCalendar) return;
-    // Block the tap from reaching any calendar cell handler...
+    return false;
+  }
+  function guardCalendarWhileModalOpen(e) {
+    if (!modalIsOpen()) return;
+    if (isInsideModalCard(e.target)) return;   // let the popup's own controls work
+    // Block the tap from reaching any day cell...
     e.stopPropagation();
     if (e.cancelable) e.preventDefault();
     // ...and close the popup exactly once for this gesture.
     if (e.type === 'touchend' || e.type === 'click') {
       if (!guardCalendarWhileModalOpen.done) {
         guardCalendarWhileModalOpen.done = true;
-        mark('calendar tap blocked while modal open -> closeModal');
+        mark('tap outside popup while open -> closeModal');
         closeModal();
         setTimeout(function () { guardCalendarWhileModalOpen.done = false; }, 400);
       }

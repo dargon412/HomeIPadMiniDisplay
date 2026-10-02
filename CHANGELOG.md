@@ -7,11 +7,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 - **Tapping a calendar day while the add-event popup was open switched the popup to that day.**
-  The previous fix checked `modalIsOpen()` *inside* the cell handler, but the overlay's own tap
-  could close the popup first, so the cell handler then saw a closed popup and opened the new day.
-  A **capture-phase guard** on `document` now blocks `touchstart`/`touchend`/`click` from reaching
-  any calendar element while the popup is open, and closes the popup exactly once per gesture.
-  Re-tapping a day after that opens it normally, so an open popup can never change date.
+  The device log showed the tap target was `DIV#modal` (the overlay), **not** a calendar cell, yet
+  the day cell handler still ran. The earlier guard only acted when the target was inside the
+  calendar, so it bailed out and did nothing. The capture-phase guard now blocks by **exclusion**:
+  while the popup is open it swallows every `touchstart`/`touchend`/`click` except those on the
+  popup's own controls, and closes the popup once per gesture. `openModal()` also refuses to switch
+  the date of an already-open popup as a safety net.
 
 ### Added
 - **Single combined backup button (⬇️ 匯出備份 Backup).** Replaces the separate `匯出 config.js` /

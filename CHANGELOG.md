@@ -5,6 +5,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Tapping a calendar day while the add-event popup was open switched the popup to that day.**
+  The previous fix checked `modalIsOpen()` *inside* the cell handler, but the overlay's own tap
+  could close the popup first, so the cell handler then saw a closed popup and opened the new day.
+  A **capture-phase guard** on `document` now blocks `touchstart`/`touchend`/`click` from reaching
+  any calendar element while the popup is open, and closes the popup exactly once per gesture.
+  Re-tapping a day after that opens it normally, so an open popup can never change date.
+
 ### Added
 - **Single combined backup button (⬇️ 匯出備份 Backup).** Replaces the separate `匯出 config.js` /
   `匯出 JSON 備份` / `複製設定 JSON` buttons. It downloads one `home-dashboard-backup.json`

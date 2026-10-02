@@ -92,7 +92,16 @@ onTap($('some-element'), function () { /* ... */ });
 `onTap` fires on `touchend` when the finger moved less than 10 px, ignores drags, still supports
 mouse `click`, and guards against the touch+click double-fire. Inside a handler that needs the
 element under the finger, read `e.changedTouches[0]` (falling back to `e.target`) and walk up the
-DOM with `findUp(node, 'class-name')` rather than `closest()`.
+DOM rather than using `closest()`.
+
+### Blocking taps to a background element
+
+An `onTap` check *inside* a handler is not enough when a full-screen overlay is open: the overlay's
+own tap can run first and change the state the handler checks. When an overlay must stop taps
+reaching what is behind it, add a **capture-phase** listener on `document` and
+`stopPropagation()` — see `guardCalendarWhileModalOpen()` in `bindUi()`. It blocks
+`touchstart`/`touchend`/`click` from any `.cal-*` element while the event popup is open, and
+closes the popup once per gesture.
 
 ## Releases and caching
 

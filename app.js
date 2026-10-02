@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.11';
+var APP_VERSION = '2026-10-02.12';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -768,6 +768,40 @@ function bindUi() {
   // Calendar day taps are bound per-cell inside renderCalendar() via
   // bindCellTap(), so nothing to wire here. A grid-level handler also
   // catches taps on empty cells (which should do nothing).
+
+  // HARD GUARD: while the event popup is open, a tap on the calendar must
+  // close the popup and must NOT open a day. Doing this in the CAPTURE phase
+  // stops the event reaching the cell handlers at all, which a check inside
+  // the handler could not do (a stray click could fire the cell handler
+  // after the overlay had already closed the popup).
+  function guardCalendarWhileModalOpen(e) {
+    if (!modalIsOpen()) return;
+    var node = e.target;
+    var inCalendar = false;
+    while (node && node !== document) {
+      if (node.id === 'cal-grid' || node.id === 'cal-panel' ||
+          (node.className && String(node.className).indexOf('cal-') === 0)) {
+        inCalendar = true; break;
+      }
+      node = node.parentNode;
+    }
+    if (!inCalendar) return;
+    // Block the tap from reaching any calendar cell handler...
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+    // ...and close the popup exactly once for this gesture.
+    if (e.type === 'touchend' || e.type === 'click') {
+      if (!guardCalendarWhileModalOpen.done) {
+        guardCalendarWhileModalOpen.done = true;
+        mark('calendar tap blocked while modal open -> closeModal');
+        closeModal();
+        setTimeout(function () { guardCalendarWhileModalOpen.done = false; }, 400);
+      }
+    }
+  }
+  ['touchstart', 'touchend', 'click'].forEach(function (ev) {
+    document.addEventListener(ev, guardCalendarWhileModalOpen, true);
+  });
 
   onTap($('modal-add-btn'), addEvent);
   $('modal-input').addEventListener('keydown', function (e) {

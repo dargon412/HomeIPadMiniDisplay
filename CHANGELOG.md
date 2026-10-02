@@ -6,6 +6,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- **Some calendar days did not open on a single tap (e.g. 11–14).** The day handler was bound
+  per-cell, so every `renderCalendar()` (every 60 s, and on `closeModal()`) destroyed and rebuilt
+  the cells and their listeners. A tap whose `touchend` landed after a rebuild hit a node that no
+  longer existed, so the popup never opened. Day taps now use **one delegated listener on
+  `#cal-grid`** (which survives re-renders) and read the date from the live cell at event time
+  (`cellDateFromTarget()`), using `elementFromPoint` for the touch coordinate.
 - **Day taps only worked on some days; single tap did nothing but rapid taps opened the popup.**
   The popup opens on `touchend`, then the browser fires the synthetic `click` that belongs to the
   *same* tap. The capture guard saw `modalIsOpen() === true`, read that click as a tap *outside* the

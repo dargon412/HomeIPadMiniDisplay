@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.15';
+var APP_VERSION = '2026-10-02.16';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -623,9 +623,10 @@ function renderCalendar() {
     var cell = el('div', 'cal-cell');
     if (key === todayKey) cell.classList.add('today');
     cell.setAttribute('data-date', key);
-    // Bind the date directly to this cell so a tap never has to walk the DOM
-    // to work out which day it hit (avoids stale-node and attribute issues).
-    bindCellTap(cell, key);
+    // No per-cell listener: day taps are handled by ONE delegated listener on
+    // #cal-grid (see bindCalendarTaps). A per-cell listener is destroyed every
+    // time renderCalendar() rebuilds the grid, which can swallow a tap whose
+    // touchend lands on the replacement cell.
 
     var top = el('div', 'cal-top');
     top.appendChild(el('span', 'cal-day', String(dayNum)));
@@ -733,31 +734,59 @@ function addEvent() {
    OUR code ran, separately from the raw browser events. */
 function mark(what) { if (TAP_DEBUG) tapLog('   -> HANDLER: ' + what); }
 
-/* Attach a tap handler straight to a calendar cell, carrying its own date.
-   No DOM walking, so it is immune to re-renders and attribute quirks. */
-function bindCellTap(cell, key) {
+/* Find the calendar day cell under a tap, and read its date.
+   Reads the date at event time from the live DOM, so it never goes stale. */
+function cellDateFromTarget(node) {
+  while (node && node !== document) {
+    if (node.classList && node.classList.contains('cal-cell') &&
+        !node.classList.contains('empty') && node.getAttribute) {
+      var d = node.getAttribute('data-date');
+      if (d) return d;
+    }
+    node = node.parentNode;
+  }
+  return null;
+}
+
+/* ONE tap handler for the whole grid, delegated on #cal-grid.
+   #cal-grid itself survives renderCalendar() (only its children are rebuilt),
+   so this listener is never lost mid-tap the way a per-cell listener was. */
+function bindCalendarTaps(grid) {
+  if (!grid) return;
   var moved = false, sx = 0, sy = 0, handled = false;
-  cell.addEventListener('touchstart', function (e) {
+
+  grid.addEventListener('touchstart', function (e) {
     if (e.touches && e.touches.length === 1) {
       moved = false; handled = false;
       sx = e.touches[0].clientX; sy = e.touches[0].clientY;
     }
   }, { passive: true });
-  cell.addEventListener('touchmove', function (e) {
+
+  grid.addEventListener('touchmove', function (e) {
     if (e.touches && e.touches.length === 1 &&
         (Math.abs(e.touches[0].clientX - sx) > 10 || Math.abs(e.touches[0].clientY - sy) > 10)) moved = true;
   }, { passive: true });
-  cell.addEventListener('touchend', function () {
+
+  grid.addEventListener('touchend', function (e) {
     if (moved) return;
+    var touch = (e.changedTouches && e.changedTouches[0]) || null;
+    var target = (touch && document.elementFromPoint)
+      ? (document.elementFromPoint(touch.clientX, touch.clientY) || e.target)
+      : e.target;
+    var key = cellDateFromTarget(target);
+    if (!key) return;               // tapped an empty cell / the gap between cells
     handled = true;                 // stop the synthetic click that follows
-    if (modalIsOpen()) { mark('cell touchend while modal open -> closeModal'); closeModal(); return; }
-    mark('cell touchend ' + key);
+    if (modalIsOpen()) { mark('grid touchend while modal open -> closeModal'); closeModal(); return; }
+    mark('grid touchend ' + key);
     openModal(key);
   });
-  cell.addEventListener('click', function () {
+
+  grid.addEventListener('click', function (e) {
     if (handled) { handled = false; return; }   // already handled by touchend
-    if (modalIsOpen()) { mark('cell click while modal open -> closeModal'); closeModal(); return; }
-    mark('cell click ' + key);
+    var key = cellDateFromTarget(e.target);
+    if (!key) return;
+    if (modalIsOpen()) { mark('grid click while modal open -> closeModal'); closeModal(); return; }
+    mark('grid click ' + key);
     openModal(key);
   });
 }
@@ -773,11 +802,9 @@ function bindUi() {
     calCursor = new Date(); calCursor.setDate(1); renderCalendar();
   });
 
-  // Day taps: use a touch-aware tap on the grid. The handler walks up to the
-  // cell so tapping the number, badge, weather icon or an event text all work.
-  // Calendar day taps are bound per-cell inside renderCalendar() via
-  // bindCellTap(), so nothing to wire here. A grid-level handler also
-  // catches taps on empty cells (which should do nothing).
+  // Day taps: one delegated touch-aware handler on the whole grid. Tapping the
+  // number, badge, weather icon or an event text all resolve to the same cell.
+  bindCalendarTaps($('cal-grid'));
 
   // HARD GUARD: while the event popup is open, any tap that is NOT on the
   // popup's own controls must close the popup and must NOT open a day.

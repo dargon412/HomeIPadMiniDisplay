@@ -96,8 +96,6 @@ html, body {
 .fc-hi { color: #ffd27a; }
 .fc-lo { color: #9fd0ff; }
 
-#status { font-size: 12px; color: var(--muted); text-align: right; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* ---------------- MAIN LAYOUT ---------------- */
 main {
   height: calc(100% - var(--topbar-h));
@@ -113,8 +111,15 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
   margin: 0; padding: 12px 16px; font-size: 20px;
   border-bottom: 1px solid var(--line);
   background: var(--panel-2);
+  display: flex; align-items: baseline; gap: 6px;
 }
-.panel-title .en { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.panel-title .en { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 0; }
+/* Bus last-refresh time: pushed to the far right of the panel title row. */
+#bus-status {
+  margin-left: auto; min-width: 0;
+  font-size: 12px; font-weight: 400; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right;
+}
 
 /* ---------------- BUS ---------------- */
 #bus-panel { display: flex; flex-direction: column; }
@@ -496,7 +501,6 @@ button.icon-btn {
   #date { font-size: 12px; margin-top: 2px; }
   #weather { grid-column: 2; grid-row: 1; min-width: 0; }
   #settings-btn { grid-column: 3; grid-row: 1; }
-  #status { display: none; }             /* transient text; save the space */
   #forecast {
     grid-column: 1 / -1; grid-row: 2;
     display: flex; justify-content: space-between; gap: 3px;

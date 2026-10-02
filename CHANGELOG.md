@@ -5,6 +5,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Bus last-refresh time moved into the bus panel.** The "巴士 HH:MM 更新" status used to sit in
+  the top header (`#status`); it is now right-aligned in the 🚌 巴士到站 title row (`#bus-status`),
+  freeing the header for the clock/weather/gear. The header gear now sits at the far right.
+
 ### Fixed
 - **Settings buttons (including 💾 Save & apply) sometimes did nothing on the tablet.** They were
   bound with a raw `click`, which the browser suppresses whenever a tap drifts even slightly — very

@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#0b1220">
   <link rel="manifest" href="manifest.json">
   <title>家庭看板 · Home Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -31,7 +31,6 @@
 
     <div id="forecast"></div>
 
-    <div id="status">準備中…</div>
     <button id="settings-btn" title="設定 Settings" aria-label="設定">⚙️</button>
   </header>
 
@@ -39,7 +38,7 @@
   <main>
     <!-- BUS PANEL -->
     <section id="bus-panel">
-      <h2 class="panel-title">🚌 巴士到站 <span class="en">Bus Arrivals</span></h2>
+      <h2 class="panel-title">🚌 巴士到站 <span class="en">Bus Arrivals</span><span id="bus-status"></span></h2>
       <div id="bus-list"></div>
     </section>
 
@@ -95,8 +94,8 @@
     </div>
   </div>
 
-  <script src="config.js?v=29"></script>
-  <script src="settings.js?v=29"></script>
-  <script src="app.js?v=29"></script>
+  <script src="config.js?v=30"></script>
+  <script src="settings.js?v=30"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>

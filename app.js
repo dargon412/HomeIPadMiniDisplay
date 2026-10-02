@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.25';
+var APP_VERSION = '2026-10-02.26';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -164,7 +164,7 @@ function fetchJson(url, timeoutMs) {
   });
 }
 
-function setStatus(text) { $('status').textContent = text; }
+function setStatus(text) { var n = $('bus-status'); if (n) n.textContent = text; }
 
 /* ----------------------------- CONFIG ----------------------------- */
 /* The ⚙️ settings page saves changes in localStorage. If there are none

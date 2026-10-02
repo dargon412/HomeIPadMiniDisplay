@@ -5,7 +5,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Current-weather box is narrower; the 7-day forecast is wider.** The weather box is capped at
+  240px and the forecast cells share the remaining width (`flex: 1 1 0`), so all seven days get
+  more room.
+
 ### Fixed
+- **Weather detail needed a "long press" to open.** `onTap` ignored any tap that drifted more than
+  10px, so a normal quick tap on the weather box was treated as a scroll and never fired. `onTap`
+  now takes a `loose` option (40px tolerance), used for the weather box since it is not inside a
+  scroll area — a light single tap now opens the detail.
 - **Portrait layout ran off the screen.** In portrait the panels stack, but the bus panel grew
   unbounded and the calendar was pushed past the bottom edge, cutting off the last week-row and the
   roster legend. Portrait now caps the bus panel at 34% (it scrolls internally), gives the calendar

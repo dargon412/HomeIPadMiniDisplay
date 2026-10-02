@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.18';
+var APP_VERSION = '2026-10-02.19';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -92,8 +92,12 @@ function $(id) { return document.getElementById(id); }
    moves even slightly is treated as a scroll, and `click` never fires.
    This helper fires the handler on `touchend` (if the finger barely
    moved), and falls back to `click` for mouse/desktop. */
-function onTap(node, handler) {
+function onTap(node, handler, opts) {
   if (!node) return;
+  // `loose` loosens the movement tolerance for elements that are NOT inside a
+  // scroll area (e.g. the weather box): a natural tap often drifts more than
+  // the strict 10px, which made it feel like it needed a long press.
+  var tol = (opts && opts.loose) ? 40 : 10;
   var moved = false, startX = 0, startY = 0, handled = false;
 
   node.addEventListener('touchstart', function (e) {
@@ -105,8 +109,8 @@ function onTap(node, handler) {
 
   node.addEventListener('touchmove', function (e) {
     if (e.touches.length !== 1) return;
-    if (Math.abs(e.touches[0].clientX - startX) > 10 ||
-        Math.abs(e.touches[0].clientY - startY) > 10) moved = true;
+    if (Math.abs(e.touches[0].clientX - startX) > tol ||
+        Math.abs(e.touches[0].clientY - startY) > tol) moved = true;
   }, { passive: true });
 
   node.addEventListener('touchend', function (e) {
@@ -853,7 +857,9 @@ function bindUi() {
     if (window.openSettings) window.openSettings();
   });
 
-  onTap($('weather'), function (e) { mark('weather tapped'); openWeatherDetail(e); });
+  // `loose`: the weather box is not in a scroll area, so accept a tap that
+  // drifts a little — a normal quick tap should be enough to open the detail.
+  onTap($('weather'), function (e) { mark('weather tapped'); openWeatherDetail(e); }, { loose: true });
   onTap($('wm-close'), closeWeatherDetail);
   onTap($('weather-modal'), function (e) {
     if (e.target === $('weather-modal')) closeWeatherDetail();

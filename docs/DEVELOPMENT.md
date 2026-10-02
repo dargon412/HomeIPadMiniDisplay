@@ -90,7 +90,9 @@ onTap($('some-element'), function () { /* ... */ });
 ```
 
 `onTap` fires on `touchend` when the finger moved less than 10 px, ignores drags, still supports
-mouse `click`, and guards against the touch+click double-fire. Inside a handler that needs the
+mouse `click`, and guards against the touch+click double-fire. Pass `{ loose: true }` as the third
+argument for an element that is **not** inside a scroll area (e.g. the weather box) — it raises the
+tolerance to 40 px so an ordinary quick tap registers instead of feeling like a long press. Inside a handler that needs the
 element under the finger, read `e.changedTouches[0]` (falling back to `e.target`) and walk up the
 DOM rather than using `closest()`.
 

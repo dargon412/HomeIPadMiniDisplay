@@ -12,9 +12,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   and an exported `config.js` (`parseBackup()` strips the comment and the `const CONFIG =` wrapper).
   A new `⬇️ 匯出 JSON 備份` button writes a plain `.json` file for a clean round-trip.
 
-- **Tapping another day while the add-event popup was open changed the popup's date.** Calendar
-  cell taps now check `modalIsOpen()` and are ignored while the popup is on screen, so a stray tap
-  on a day behind the overlay cannot switch dates.
+- **Tapping a calendar day while the add-event popup was open changed the popup's date.** Now a
+  calendar tap while the popup is open simply **closes** the popup; it never switches the date.
+  Re-tapping a day after that opens it normally. (`bindCellTap` calls `modalIsOpen()`.)
 
 ### Changed
 - **Target device is now a Samsung Galaxy Tab A9** (1340 × 800, 5:3, Chrome) instead of an

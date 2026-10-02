@@ -6,6 +6,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+- **In landscape the bus panel is now half its former width (40% → 20%), and the calendar takes
+  the rest (80%).** Because the column is narrower, the bus panel's typography was scaled down to
+  match (title, stop names, route numbers, chips and times), the English panel subtitle is hidden,
+  and the route-row grid is narrowed so all three ETA chips still fit without truncation. Verified
+  with live KMB + Citybus data at 1340×800; portrait is unaffected (panels stack there).
 - **Current-weather box is narrower; the 7-day forecast is wider.** The weather box is capped at
   240px and the forecast cells share the remaining width (`flex: 1 1 0`), so all seven days get
   more room.

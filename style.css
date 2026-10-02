@@ -406,7 +406,8 @@ button.icon-btn {
 @media (orientation: landscape) and (min-width: 1100px) {
   :root { --topbar-h: 122px; }
 
-  main { grid-template-columns: 40% 60%; gap: 16px; padding: 16px; }
+  /* Bus panel gets half the width it used to; the calendar takes the rest. */
+  main { grid-template-columns: 20% 80%; gap: 12px; padding: 12px; }
 
   #time { font-size: 44px; }
   #date { font-size: 15px; }
@@ -420,11 +421,21 @@ button.icon-btn {
   .fc-icon { font-size: 22px; }
   .fc-temp { font-size: 12px; }
 
-  .panel-title { font-size: 22px; }
-  .stop-head { font-size: 17px; }
-  .route-no { font-size: 24px; }
-  .chip-min { font-size: 22px; }
-  .chip-time { font-size: 12px; }
+  /* --- Bus panel scaled for the narrower column --- */
+  .panel-title { font-size: 16px; padding: 9px 10px; }
+  .panel-title .en { display: none; }      /* no room for the English subtitle */
+  #bus-list { padding: 6px 8px 10px; }
+  .stop-card { margin-bottom: 8px; }
+  .stop-head { font-size: 13px; padding: 4px 2px 6px; margin-bottom: 6px; gap: 6px; }
+  .op-tag { font-size: 9px; padding: 1px 6px; }
+  .route-row { grid-template-columns: 46px 1fr; gap: 6px; padding: 4px 0; }
+  .route-no { font-size: 16px; }
+  .route-dest { font-size: 9px; max-width: 44px; }
+  .chips { gap: 4px; }
+  .chip { padding: 5px 2px; border-radius: 9px; }
+  .chip-min { font-size: 14px; }
+  .chip-time { font-size: 9px; }
+  .chip-note { font-size: 8px; }
 
   .cal-day { font-size: 17px; }
   .cal-event { font-size: 12px; }

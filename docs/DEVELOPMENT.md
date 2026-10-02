@@ -5,7 +5,7 @@ For working on the app on a computer.
 ## Running locally
 
 No build step, no dependencies. Just serve the folder over HTTP (needed so `fetch` and
-`localStorage` behave like they will on the iPad):
+`localStorage` behave like they will on the tablet):
 
 ```bash
 cd ipad-dashboard
@@ -26,7 +26,7 @@ mode set to that size. A **wide-landscape media query** (`min-width: 1100px`) pr
 for this screen; the base layout is relative and there is a **portrait fallback** under
 `@media (orientation: portrait)`.
 
-Check every change at 1024×768, because the header is dense and the calendar grid has exactly
+Check every change at 1340×800, because the header is dense and the calendar grid has exactly
 enough room for 6 week-rows.
 
 ## Browser compatibility rules
@@ -158,6 +158,6 @@ This is how the features were verified during development, and it's a good patte
 
 - No new dependencies.
 - Degrades gracefully offline (individual `.catch()` per request).
-- Doesn't break the 1024×768 layout.
+- Doesn't break the 1340×800 layout.
 - Auto-refresh still pauses during interaction.
 - `CHANGELOG.md` updated.

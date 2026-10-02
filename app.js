@@ -1,6 +1,7 @@
 /* ============================================================
    家庭看板 Home Dashboard — app logic
-   Works on iPadOS 15 Safari (no build step, no frameworks).
+   Static site, no build step, no frameworks. Runs in a browser
+   (target: Android Chrome/Firefox on a wall-mounted tablet).
    Data sources (all official, free, browser-friendly):
      • KMB / LWB ETA : https://data.etabus.gov.hk
      • Citybus ETA   : https://rt.data.gov.hk
@@ -10,12 +11,12 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.13';
+var APP_VERSION = '2026-10-02.14';
 
 /* ---------------- on-device tap diagnostics ----------------
-   Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
+   Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
    to show a panel that logs the raw events your taps produce. This is
-   how we find out exactly what iPadOS is sending. */
+   how we find out exactly what the device is sending. */
 var TAP_DEBUG = /[?&]debug=1/.test(location.search);
 
 function tapLog(msg) {
@@ -781,9 +782,7 @@ function bindUi() {
   // EXCLUSION: allow only the popup's own interactive parts, block the rest.
   function isInsideModalCard(node) {
     while (node && node !== document) {
-      if (node.id === 'modal-events' || node.id === 'modal-input' ||
-          node.id === 'modal-add-btn' || node.id === 'modal-close') return true;
-      if (node.className && String(node.className).indexOf('modal-') === 0) return true;
+      if (node.className && String(node.className).indexOf('modal-card') >= 0) return true;
       node = node.parentNode;
     }
     return false;
@@ -813,9 +812,8 @@ function bindUi() {
     if (e.key === 'Enter') addEvent();
   });
   onTap($('modal-close'), closeModal);
-  onTap($('modal'), function (e) {
-    if (e.target === $('modal')) closeModal();
-  });
+  // (Tapping the overlay to close is handled by guardCalendarWhileModalOpen,
+  //  which stopPropagation()s before this element's own handlers could run.)
 
   mark('bindUi done');
 

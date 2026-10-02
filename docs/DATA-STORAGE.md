@@ -24,7 +24,7 @@ So the effective config is: **saved settings, with config.js filling in anything
 
 Consequences:
 
-- Editing `config.js` and pushing changes **does not** change an iPad that already has saved
+- Editing `config.js` and pushing changes **does not** change a device that already has saved
   settings — the saved copy wins. To apply a new `config.js` default, press
   **⚙️ → 備份 → ♻️ 還原 config.js 預設** first, then reload.
 - Clearing Safari website data wipes saved settings; the app falls back to `config.js`.
@@ -124,7 +124,7 @@ The `.v1` suffixes are schema versions. If you change the shape of stored data:
 1. Bump the key (`v2`) **and** add a migration that reads the old key, or
 2. Add a normalizer that tolerates the old shape.
 
-Do not silently change a shape in place — existing iPads will break.
+Do not silently change a shape in place — existing devices will break.
 
 ## Storage limits & failure modes
 

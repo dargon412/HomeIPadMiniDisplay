@@ -11,7 +11,6 @@ npm, or a framework.
 
 - Live: <https://dargon412.github.io/HomeMiniDisplay/>
 - Repo: `git@github.com:dargon412/HomeMiniDisplay.git` (remote `origin`, branch `main`)
-- Note: the README title still says `HomeIPadMiniDispay` — that is stale, the repo was renamed.
 
 ## Run and verify
 
@@ -45,10 +44,10 @@ Customize-stop IDs come from `tools.html`; `docs/API.md` documents the exact end
 ## Hard rules / gotchas
 
 - **Every release must bump the cache-buster.** GitHub Pages sends `cache-control: max-age=600`
-  and Safari caches harder still. Bump all four `?v=N` in `index.html` (lines ~12, 98–100, currently
-  `v=9`) **and** `APP_VERSION` in `app.js` (currently `'2026-10-02.8'`). The version shows
-  bottom-left on the page and in the settings footer; that is how a device is confirmed to be on the
-  new build. Missing this is the #1 source of "I pushed but the device shows the old thing".
+  and Safari caches harder still. Bump all four `?v=N` in `index.html` (lines ~12, 98–100) **and**
+  `APP_VERSION` in `app.js`. The version shows bottom-left on the page and in the settings footer;
+  that is how a device is confirmed to be on the new build. Missing this is the #1 source of
+  "I pushed but the device shows the old thing".
 - **Bind taps with `onTap(node, handler)` — never `click` directly on a non-`<button>`.** A tap that
   drifts >10 px is treated as a scroll and no `click` fires. `onTap` guards the touch→click
   double-fire. This has already caused a long debugging saga.
@@ -64,13 +63,11 @@ Customize-stop IDs come from `tools.html`; `docs/API.md` documents the exact end
   `homeDashboard.events.v1`). The repo is public. The user has explicitly said "no surprise".
 - **Auto-refresh must keep pausing on interaction** — see `isInteracting()` / `scheduleRefresh()` in
   `app.js`. Any new timed refresh goes through the same guard.
-
-## Known doc drift (fix if you touch these)
-
-- `docs/DEVELOPMENT.md` and `docs/ARCHITECTURE.md` still mention `findUp()`, which was removed when
-  calendar cells began binding their own dates. Prefer `onTap` + per-element data over DOM walking.
-- `docs/DEVELOPMENT.md` still says "Check every change at 1024×768" in one spot; the real target is
-  1340×800.
+- **Blocking taps behind an overlay needs a capture-phase guard, not an in-handler check.** When the
+  event popup is open, `guardCalendarWhileModalOpen()` (in `bindUi()`) swallows
+  `touchstart`/`touchend`/`click` for everything except `.modal-card` descendants, and closes the
+  popup once per gesture. An `onTap` check *inside* a cell handler is not enough — the overlay's own
+  tap can run first and change the state the handler checks.
 
 ## Before you finish
 

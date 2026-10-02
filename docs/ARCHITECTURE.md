@@ -153,7 +153,7 @@ or bump the key rather than silently breaking existing installs.
 1. Decide if it needs config. If so, add it in `config.js`, `settings.js` defaults, and normalize
    it in `app.js`.
 2. Add markup in `index.html` if it's a new panel/modal.
-3. Add styles in `style.css`, keeping the 1024×768 landscape target in mind.
+3. Add styles in `style.css`, keeping the 1340×800 landscape target in mind.
 4. Write the render function in `app.js`; make it idempotent (safe to call repeatedly).
 5. If it fetches data, add the loop in `scheduleRefresh()` and respect `isInteracting()`.
 6. Test in a browser at 1340×800, then on the tablet.

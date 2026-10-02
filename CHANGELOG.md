@@ -6,6 +6,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+- **Weather detail popup now closes with an ✕ in its top-right corner**, matching the add-event
+  popup, instead of the old full-width 關閉 button. Both modals now share a `.modal-close` style.
 - **Bus last-refresh time moved into the bus panel.** The "巴士 HH:MM 更新" status used to sit in
   the top header (`#status`); it is now right-aligned in the 🚌 巴士到站 title row (`#bus-status`),
   freeing the header for the clock/weather/gear. The header gear now sits at the far right.

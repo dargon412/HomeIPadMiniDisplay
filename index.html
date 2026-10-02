@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#0b1220">
   <link rel="manifest" href="manifest.json">
   <title>家庭看板 · Home Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
 
@@ -72,9 +72,9 @@
   <!-- ======================= WEATHER DETAIL ======================= -->
   <div id="weather-modal" class="hidden">
     <div class="modal-card">
+      <button id="wm-close" class="modal-close" title="關閉" aria-label="關閉">✕</button>
       <h3 id="wm-title">今日天氣</h3>
       <div id="wm-body"></div>
-      <button id="wm-close">關閉</button>
     </div>
   </div>
 
@@ -84,7 +84,7 @@
   <!-- ======================= EVENT MODAL ======================= -->
   <div id="modal" class="hidden">
     <div class="modal-card">
-      <button id="modal-close" title="關閉" aria-label="關閉">✕</button>
+      <button id="modal-close" class="modal-close" title="關閉" aria-label="關閉">✕</button>
       <h3 id="modal-date">----</h3>
       <div id="modal-events"></div>
       <div class="modal-add">
@@ -94,8 +94,8 @@
     </div>
   </div>
 
-  <script src="config.js?v=30"></script>
-  <script src="settings.js?v=30"></script>
-  <script src="app.js?v=30"></script>
+  <script src="config.js?v=31"></script>
+  <script src="settings.js?v=31"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>

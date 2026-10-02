@@ -5,6 +5,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Settings buttons (including 💾 Save & apply) sometimes did nothing on the tablet.** They were
+  bound with a raw `click`, which the browser suppresses whenever a tap drifts even slightly — very
+  common on a touch screen. Settings now use the same touch-aware helper as the dashboard, so a
+  clean or lightly-wobbling tap fires while a genuine drag/scroll does not. This is why dragging the
+  bus-width slider then tapping Save appeared to have no effect.
+- **The bus-panel size setting now works in portrait too.** Previously the slider only affected the
+  landscape width; portrait used a fixed height, so the setting did nothing there. The one setting
+  now drives `--bus-w` (landscape width) and `--bus-h` (portrait height, scaled ~1.6×, clamped
+  22–55%).
+
 ### Added
 - **Adjustable bus-panel width.** A new `layout.busWidth` setting (percent, default 20) controls
   the landscape split; the calendar takes the remaining width. It is exposed as a **slider in

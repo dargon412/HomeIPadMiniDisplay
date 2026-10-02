@@ -113,11 +113,46 @@
     return s;
   }
 
+  /* Touch-aware tap binding. A plain `click` is suppressed by the browser
+     whenever a tap drifts (which is normal on a tablet, especially inside a
+     scroll area), so buttons appear dead. This mirrors app.js's onTap: fire
+     on a clean touchend, and fall back to click for mouse/keyboard. */
+  function tap(node, handler, opts) {
+    if (!node) return;
+    var tol = (opts && opts.loose) ? 40 : 12;
+    var moved = false, startX = 0, startY = 0, handled = false;
+
+    node.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) return;
+      moved = false; handled = false;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    node.addEventListener('touchmove', function (e) {
+      if (e.touches.length !== 1) return;
+      if (Math.abs(e.touches[0].clientX - startX) > tol ||
+          Math.abs(e.touches[0].clientY - startY) > tol) moved = true;
+    }, { passive: true });
+
+    node.addEventListener('touchend', function (e) {
+      if (moved) return;
+      e.preventDefault();          // stop the synthetic click / focus steal
+      handled = true;
+      handler(e);
+    });
+
+    node.addEventListener('click', function (e) {
+      if (handled) { handled = false; return; }
+      handler(e);
+    });
+  }
+
   function button(text, cls, onClick) {
     var b = document.createElement('button');
     b.className = cls || 'ghost';
     b.textContent = text;
-    b.addEventListener('click', onClick);
+    tap(b, onClick);
     return b;
   }
 
@@ -184,14 +219,20 @@
       working.layout = working.layout || {};
       working.layout.busWidth = v;
       busVal.textContent = v + '%';
-      document.documentElement.style.setProperty('--bus-w', v + '%');  // live preview
+      // Live preview: same mapping app.js uses (width in landscape, height in portrait).
+      var root = document.documentElement.style;
+      root.setProperty('--bus-w', v + '%');
+      var bh = Math.round(v * 1.6);
+      if (bh < 22) bh = 22;
+      if (bh > 55) bh = 55;
+      root.setProperty('--bus-h', bh + '%');
     });
     var busWrap = document.createElement('div');
     busWrap.className = 'range-wrap';
     busWrap.appendChild(busRange);
     busWrap.appendChild(busVal);
-    s.body.appendChild(makeField('巴士面板闊度 Bus panel width', busWrap,
-      '打橫時適用；其餘空間就係月曆（建議 15–30%）'));
+    s.body.appendChild(makeField('巴士面板大小 Bus panel size', busWrap,
+      '打橫 = 闊度，打直 = 高度；其餘空間就係月曆（建議 15–30%）'));
 
     // fill options (async)
     dist.innerHTML = '<option value="">香港天文台（預設）</option>';

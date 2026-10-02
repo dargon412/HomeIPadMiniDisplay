@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.21';
+var APP_VERSION = '2026-10-02.23';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -188,11 +188,26 @@ function normalizeConfig() {
 }
 normalizeConfig();
 
-/* Push the bus-panel width into CSS (only affects landscape layout). */
-function applyLayout() {
+/* Push the bus-panel size into CSS. The one setting drives both:
+   - landscape: bus panel WIDTH  (--bus-w), calendar takes the rest
+   - portrait : bus panel HEIGHT (--bus-h), calendar fills below
+   `layout.busWidth` is stored as a percentage (12-60, default 20); in
+   portrait we map it a little higher so the bus panel stays readable. */
+function busPanelSize() {
   var bw = Number(CFG.layout && CFG.layout.busWidth);
   if (!(bw >= 12 && bw <= 60)) bw = 20;
-  document.documentElement.style.setProperty('--bus-w', bw + '%');
+  return bw;
+}
+function applyLayout() {
+  var bw = busPanelSize();
+  var root = document.documentElement.style;
+  root.setProperty('--bus-w', bw + '%');
+  // Portrait: width->height. 20% width ~= 34% height, so scale up ~1.6x,
+  // clamped to a sane 22-55% so neither panel becomes unusable.
+  var bh = Math.round(bw * 1.6);
+  if (bh < 22) bh = 22;
+  if (bh > 55) bh = 55;
+  root.setProperty('--bus-h', bh + '%');
 }
 applyLayout();
 

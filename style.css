@@ -10,9 +10,10 @@
      together if you resize the header. Overridden on wide screens below. */
   --topbar-h: 104px;
 
-  /* Landscape split: bus panel width. app.js sets this from the saved
-     `layout.busWidth` setting; the calendar takes the remainder. */
+  /* Panel split. app.js sets these from the saved `layout.busWidth` setting:
+     --bus-w is the landscape width, --bus-h the portrait height. */
   --bus-w: 20%;
+  --bus-h: 34%;
 
   --bg: #0b1220;
   --panel: #131c2e;
@@ -497,7 +498,8 @@ button.icon-btn {
   main {
     height: calc(100% - var(--topbar-h));
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 34%) minmax(0, 66%);
+    /* Same setting, but as a HEIGHT in portrait: bus panel on top, calendar below. */
+    grid-template-rows: minmax(0, var(--bus-h)) minmax(0, 1fr);
     gap: 10px;
     padding: 10px;
   }

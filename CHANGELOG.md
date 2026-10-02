@@ -17,6 +17,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   22–55%).
 
 ### Added
+- **Adjustable font sizes — four independent sliders.** New `layout.fonts.{clock,bus,cal,titles}`
+  settings (multipliers, default 1, range 0.6–2) scale the clock/weather/forecast, the bus
+  arrivals, the calendar (days, events, weather icons, roster badges) and the titles/legend
+  independently. They are exposed as sliders in **⚙️ → 基本 General** with a live preview, are
+  stored in `localStorage`, **and are included in the backup/import** so they survive a restore.
+  The CSS applies them as `--fs-*` variables via `calc()` on the base size, so they work in
+  landscape and portrait and stack on top of the orientation-specific sizes.
 - **Adjustable bus-panel width.** A new `layout.busWidth` setting (percent, default 20) controls
   the landscape split; the calendar takes the remaining width. It is exposed as a **slider in
   ⚙️ → 基本 General** with a live preview, is stored in `localStorage`, saved in the backup file,

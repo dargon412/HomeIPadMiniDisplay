@@ -27,7 +27,7 @@
       weather: d.weather || { district: '', language: 'tc' },
       roster: d.roster || { anchorDate: '', cycle: ['M', 'N', 'L', 'L'], labels: { M: '早', N: '夜', L: '休' } },
       refresh: d.refresh || { seconds: 30 },
-      layout: d.layout || { busWidth: 20 },
+      layout: d.layout || { busWidth: 20, fonts: { clock: 1, bus: 1, cal: 1, titles: 1 } },
       busStops: d.busStops || []
     });
   }
@@ -37,12 +37,18 @@
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) { saved = null; }
     if (!saved) return base;
+
+    var baseFonts = (base.layout && base.layout.fonts) || {};
+    var savedFonts = (saved.layout && saved.layout.fonts) || {};
+    var layout = Object.assign({}, base.layout, saved.layout || {});
+    layout.fonts = Object.assign({}, baseFonts, savedFonts);
+
     return {
       title: saved.title || base.title,
       weather: Object.assign({}, base.weather, saved.weather || {}),
       roster: Object.assign({}, base.roster, saved.roster || {}),
       refresh: Object.assign({}, base.refresh, saved.refresh || {}),
-      layout: Object.assign({}, base.layout, saved.layout || {}),
+      layout: layout,
       busStops: Array.isArray(saved.busStops) ? saved.busStops : base.busStops
     };
   }
@@ -156,9 +162,53 @@
     return b;
   }
 
+  /* A labelled range slider with a live value read-out. `onInput(value)` is
+     called as the user drags (for live preview). */
+  function rangeField(label, hint, opt) {
+    var val = document.createElement('span');
+    val.className = 'range-val';
+    val.textContent = opt.format(opt.value);
+
+    var input = document.createElement('input');
+    input.type = 'range';
+    input.className = 'inp range';
+    input.min = String(opt.min);
+    input.max = String(opt.max);
+    input.step = String(opt.step || 1);
+    input.value = String(opt.value);
+    input.addEventListener('input', function () {
+      var v = Number(input.value);
+      val.textContent = opt.format(v);
+      opt.onInput(v);
+    });
+
+    var wrap = document.createElement('div');
+    wrap.className = 'range-wrap';
+    wrap.appendChild(input);
+    wrap.appendChild(val);
+    return makeField(label, wrap, hint);
+  }
+
   /* ============================================================
      GENERAL
      ============================================================ */
+  /* One font-size slider. `group` is one of clock/bus/cal/titles. */
+  function fontSlider(group, label) {
+    var fonts = (working.layout && working.layout.fonts) || {};
+    var cur = Number(fonts[group]);
+    if (!(cur >= 0.6 && cur <= 2)) cur = 1;
+    return rangeField(label + ' 字體大小', '100% = 原本大小', {
+      min: 60, max: 200, step: 5, value: Math.round(cur * 100),
+      format: function (v) { return v + '%'; },
+      onInput: function (v) {
+        working.layout = working.layout || {};
+        working.layout.fonts = working.layout.fonts || {};
+        working.layout.fonts[group] = v / 100;
+        document.documentElement.style.setProperty('--fs-' + group, String(v / 100));
+      }
+    });
+  }
+
   function sectionGeneral() {
     var s = makeSection('基本 General');
 
@@ -202,37 +252,35 @@
     });
     s.body.appendChild(makeField('自動更新間隔 Auto-refresh interval', refreshSel, '你操作畫面時會自動暫停更新'));
 
-    // Bus panel width (landscape only) — live preview by setting the CSS var.
+    // Bus panel width (landscape width / portrait height) — live preview.
     var busPct = (working.layout && working.layout.busWidth) || 20;
-    var busVal = document.createElement('span');
-    busVal.className = 'range-val';
-    busVal.textContent = busPct + '%';
-    var busRange = document.createElement('input');
-    busRange.type = 'range';
-    busRange.className = 'inp range';
-    busRange.min = '12';
-    busRange.max = '45';
-    busRange.step = '1';
-    busRange.value = String(busPct);
-    busRange.addEventListener('input', function () {
-      var v = Number(busRange.value);
-      working.layout = working.layout || {};
-      working.layout.busWidth = v;
-      busVal.textContent = v + '%';
-      // Live preview: same mapping app.js uses (width in landscape, height in portrait).
-      var root = document.documentElement.style;
-      root.setProperty('--bus-w', v + '%');
-      var bh = Math.round(v * 1.6);
-      if (bh < 22) bh = 22;
-      if (bh > 55) bh = 55;
-      root.setProperty('--bus-h', bh + '%');
-    });
-    var busWrap = document.createElement('div');
-    busWrap.className = 'range-wrap';
-    busWrap.appendChild(busRange);
-    busWrap.appendChild(busVal);
-    s.body.appendChild(makeField('巴士面板大小 Bus panel size', busWrap,
-      '打橫 = 闊度，打直 = 高度；其餘空間就係月曆（建議 15–30%）'));
+    s.body.appendChild(rangeField('巴士面板大小 Bus panel size',
+      '打橫 = 闊度，打直 = 高度；其餘空間就係月曆（建議 15–30%）', {
+      min: 12, max: 45, step: 1, value: busPct,
+      format: function (v) { return v + '%'; },
+      onInput: function (v) {
+        working.layout = working.layout || {};
+        working.layout.busWidth = v;
+        // Live preview: same mapping app.js uses (width in landscape, height in portrait).
+        var root = document.documentElement.style;
+        root.setProperty('--bus-w', v + '%');
+        var bh = Math.round(v * 1.6);
+        if (bh < 22) bh = 22;
+        if (bh > 55) bh = 55;
+        root.setProperty('--bus-h', bh + '%');
+      }
+    }));
+
+    // ---- Font sizes (live preview via the --fs-* CSS vars) ----
+    s.body.appendChild(fontSlider('clock', '時鐘 / 天氣 Clock & weather'));
+    s.body.appendChild(fontSlider('bus', '巴士到站 Bus arrivals'));
+    s.body.appendChild(fontSlider('cal', '月曆 Calendar'));
+    s.body.appendChild(fontSlider('titles', '標題 / 圖例 Titles & legend'));
+    var fontHint = document.createElement('p');
+    fontHint.className = 'sf-hint';
+    fontHint.style.marginTop = '2px';
+    fontHint.textContent = '100% = 原本大小。每組獨立調整；儲存後會跟備份一齊匯出。';
+    s.body.appendChild(fontHint);
 
     // fill options (async)
     dist.innerHTML = '<option value="">香港天文台（預設）</option>';
@@ -523,12 +571,17 @@
           var cfg = (parsed && parsed.config) ? parsed.config : parsed;
           if (!cfg || !cfg.busStops) { alert('檔案格式唔啱（搵唔到 busStops）。'); return; }
 
+          var impFonts = Object.assign({}, (working.layout && working.layout.fonts) || {},
+                                             (cfg.layout && cfg.layout.fonts) || {});
+          var impLayout = Object.assign({}, working.layout, cfg.layout || {});
+          impLayout.fonts = impFonts;
+
           working = {
             title: cfg.title || working.title,
             weather: Object.assign({}, working.weather, cfg.weather || {}),
             roster: Object.assign({}, working.roster, cfg.roster || {}),
             refresh: Object.assign({}, working.refresh, cfg.refresh || {}),
-            layout: Object.assign({}, working.layout, cfg.layout || {}),
+            layout: impLayout,
             busStops: cfg.busStops
           };
 

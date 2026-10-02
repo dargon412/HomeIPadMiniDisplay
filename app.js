@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.23';
+var APP_VERSION = '2026-10-02.24';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -184,6 +184,13 @@ function normalizeConfig() {
   CFG.layout = CFG.layout || {};
   var bw = Number(CFG.layout.busWidth);
   CFG.layout.busWidth = (bw >= 12 && bw <= 60) ? bw : 20;
+  CFG.layout.fonts = CFG.layout.fonts || {};
+  var groups = ['clock', 'bus', 'cal', 'titles'];
+  for (var gi = 0; gi < groups.length; gi++) {
+    var g = groups[gi];
+    var fv = Number(CFG.layout.fonts[g]);
+    CFG.layout.fonts[g] = (fv >= 0.6 && fv <= 2) ? fv : 1;
+  }
   LANG = CFG.weather.language || 'tc';
 }
 normalizeConfig();
@@ -208,6 +215,16 @@ function applyLayout() {
   if (bh < 22) bh = 22;
   if (bh > 55) bh = 55;
   root.setProperty('--bus-h', bh + '%');
+
+  // Font scales: one multiplier per group (1 = unchanged), clamped 0.6-2.
+  var fonts = (CFG.layout && CFG.layout.fonts) || {};
+  var keys = ['clock', 'bus', 'cal', 'titles'];
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var f = Number(fonts[k]);
+    if (!(f >= 0.6 && f <= 2)) f = 1;
+    root.setProperty('--fs-' + k, String(f));
+  }
 }
 applyLayout();
 

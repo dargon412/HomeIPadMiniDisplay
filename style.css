@@ -15,6 +15,13 @@
   --bus-w: 20%;
   --bus-h: 34%;
 
+  /* Font scales (1 = default). app.js sets these from `layout.fonts.*`.
+     Each group's text is multiplied by its scale via calc() below. */
+  --fs-clock: 1;
+  --fs-bus: 1;
+  --fs-cal: 1;
+  --fs-titles: 1;
+
   --bg: #0b1220;
   --panel: #131c2e;
   --panel-2: #1b2740;
@@ -510,4 +517,78 @@ button.icon-btn {
   .cal-day { font-size: 15px; }
   .badge { font-size: 10px; padding: 2px 5px; }
   #roster-legend { padding: 4px 10px 0; font-size: 11px; }
+}
+
+/* ---------------- USER FONT SCALES ----------------
+   app.js sets --fs-clock / --fs-bus / --fs-cal / --fs-titles from the saved
+   `layout.fonts.*` settings. This block comes last so it multiplies whatever
+   base size the layout (including the media queries above) already chose,
+   in both orientations. 1 = unchanged. */
+#time            { font-size: calc(36px * var(--fs-clock)); }
+#date            { font-size: calc(13px * var(--fs-clock)); }
+#weather-icon    { font-size: calc(26px * var(--fs-clock)); }
+#weather-temp    { font-size: calc(20px * var(--fs-clock)); }
+#weather-desc    { font-size: calc(12px * var(--fs-clock)); }
+#weather-extra   { font-size: calc(12px * var(--fs-clock)); }
+.fc-dow          { font-size: calc(11px * var(--fs-clock)); }
+.fc-icon         { font-size: calc(18px * var(--fs-clock)); }
+.fc-temp         { font-size: calc(11px * var(--fs-clock)); }
+
+.stop-head       { font-size: calc(16px * var(--fs-bus)); }
+.op-tag          { font-size: calc(11px * var(--fs-bus)); }
+.route-no        { font-size: calc(22px * var(--fs-bus)); }
+.route-dest      { font-size: calc(11px * var(--fs-bus)); }
+.chip-min        { font-size: calc(20px * var(--fs-bus)); }
+.chip-time       { font-size: calc(11px * var(--fs-bus)); }
+.chip-note       { font-size: calc(10px * var(--fs-bus)); }
+.chip.none .chip-min  { font-size: calc(13px * var(--fs-bus)); }
+.chip.loading .chip-min { font-size: calc(16px * var(--fs-bus)); }
+.chip.err .chip-min   { font-size: calc(12px * var(--fs-bus)); }
+
+.cal-day         { font-size: calc(15px * var(--fs-cal)); }
+.cal-event       { font-size: calc(11px * var(--fs-cal)); }
+.cal-more        { font-size: calc(10px * var(--fs-cal)); }
+.cal-wx          { font-size: calc(13px * var(--fs-cal)); }
+.badge           { font-size: calc(11px * var(--fs-cal)); }
+
+.panel-title     { font-size: calc(20px * var(--fs-titles)); }
+.panel-title .en { font-size: calc(13px * var(--fs-titles)); }
+#cal-title       { font-size: calc(20px * var(--fs-titles)); }
+#roster-legend   { font-size: calc(12px * var(--fs-titles)); }
+.cal-weekdays    { font-size: calc(13px * var(--fs-titles)); }
+
+/* Landscape bases differ, so restate them here (still multiplied). */
+@media (orientation: landscape) and (min-width: 1100px) {
+  #time          { font-size: calc(44px * var(--fs-clock)); }
+  #date          { font-size: calc(15px * var(--fs-clock)); }
+  #weather-icon  { font-size: calc(34px * var(--fs-clock)); }
+  #weather-temp  { font-size: calc(28px * var(--fs-clock)); }
+  #weather-desc  { font-size: calc(13px * var(--fs-clock)); }
+  #weather-extra { font-size: calc(13px * var(--fs-clock)); }
+  .fc-dow        { font-size: calc(12px * var(--fs-clock)); }
+  .fc-icon       { font-size: calc(22px * var(--fs-clock)); }
+  .fc-temp       { font-size: calc(12px * var(--fs-clock)); }
+
+  .panel-title   { font-size: calc(16px * var(--fs-titles)); }
+  .stop-head     { font-size: calc(13px * var(--fs-bus)); }
+  .op-tag        { font-size: calc(9px * var(--fs-bus)); }
+  .route-no      { font-size: calc(16px * var(--fs-bus)); }
+  .route-dest    { font-size: calc(9px * var(--fs-bus)); }
+  .chip-min      { font-size: calc(14px * var(--fs-bus)); }
+  .chip-time     { font-size: calc(9px * var(--fs-bus)); }
+  .chip-note     { font-size: calc(8px * var(--fs-bus)); }
+
+  .cal-day       { font-size: calc(17px * var(--fs-cal)); }
+  .cal-event     { font-size: calc(12px * var(--fs-cal)); }
+  .cal-wx        { font-size: calc(15px * var(--fs-cal)); }
+  .badge         { font-size: calc(12px * var(--fs-cal)); }
+}
+
+/* Portrait bases differ too. */
+@media (orientation: portrait) {
+  #time          { font-size: calc(30px * var(--fs-clock)); }
+  #date          { font-size: calc(12px * var(--fs-clock)); }
+  .cal-day       { font-size: calc(15px * var(--fs-cal)); }
+  .badge         { font-size: calc(10px * var(--fs-cal)); }
+  #roster-legend { font-size: calc(11px * var(--fs-titles)); }
 }

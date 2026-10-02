@@ -5,6 +5,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **The add-event popup's close control is now a ✕ in the top-right corner** of the card, instead
+  of a full-width 關閉 button at the bottom. The card is `position: relative` and the button is
+  absolutely positioned; the title gets right padding so it cannot run under it. The weather popup
+  keeps its bottom 關閉 button.
+
 ### Fixed
 - **Some calendar days did not open on a single tap (e.g. 11–14).** The day handler was bound
   per-cell, so every `renderCalendar()` (every 60 s, and on `closeModal()`) destroyed and rebuilt

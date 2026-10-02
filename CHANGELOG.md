@@ -5,12 +5,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Single combined backup button (⬇️ 匯出備份 Backup).** Replaces the separate `匯出 config.js` /
+  `匯出 JSON 備份` / `複製設定 JSON` buttons. It downloads one `home-dashboard-backup.json`
+  containing the config **and all calendar events**, and the matching 匯入 button restores both.
+  Import still accepts the older plain-JSON and `config.js` backups (config only). Fixes the
+  long-standing gap where events were not included in any backup, which mattered when moving to a
+  new device.
+
 ### Fixed
-- **Importing an exported backup failed with `JSON.parse: unexpected character at line 1 column 1`.**
-  The `⬇️ 匯出 config.js` button writes a JavaScript file (`/* comment */` + `const CONFIG = ...;`),
-  but the import button fed that straight into `JSON.parse()`. Import now accepts **both** raw JSON
-  and an exported `config.js` (`parseBackup()` strips the comment and the `const CONFIG =` wrapper).
-  A new `⬇️ 匯出 JSON 備份` button writes a plain `.json` file for a clean round-trip.
+- Import failed with `JSON.parse: unexpected character at line 1 column 1` when fed the exported
+  `config.js` (a comment plus `const CONFIG = ...;`). `parseBackup()` now unwraps both formats.
 
 - **Tapping a calendar day while the add-event popup was open changed the popup's date.** Now a
   calendar tap while the popup is open simply **closes** the popup; it never switches the date.

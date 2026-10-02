@@ -88,18 +88,34 @@ The settings page (**⚙️ → 備份**) provides:
 
 | Button | Effect |
 |---|---|
-| ⬇️ 匯出 config.js | Downloads a drop-in replacement for `config.js` |
-| ⬇️ 匯出 JSON 備份 | Downloads a plain `.json` file (cleanest round-trip with 匯入) |
-| 📋 複製設定 JSON | Copies the config JSON to the clipboard |
+| ⬇️ 匯出備份 Backup | Downloads **one** `.json` file containing the config **and all calendar events** |
 | ♻️ 還原 config.js 預設 | Deletes the saved config (falls back to `config.js`) |
-| 匯入 JSON 備份 | Loads a backup — accepts **either** a plain JSON file **or** an exported `config.js` |
+| 匯入備份 | Loads a backup — the combined file, or a legacy plain-JSON / `config.js` file |
 
-The import button is deliberately forgiving: it accepts raw JSON *and* the `config.js` wrapper
-(a leading `/* ... */` comment plus `const CONFIG = { ... };`), because the two export buttons
-produce different formats. `parseBackup()` handles the unwrapping.
+### Backup file shape
 
-**Events are not included in the config export** (they are separate). If you need to back up
-events, read the `homeDashboard.events.v1` value in a browser console and save it.
+The single export button writes `home-dashboard-backup.json`:
+
+```json
+{
+  "app": "home-dashboard",
+  "version": 1,
+  "exportedAt": "2026-10-02T17:00:00.000Z",
+  "config": { "title": "...", "weather": {...}, "roster": {...},
+              "refresh": {...}, "busStops": [ ... ] },
+  "events": { "2026-10-05": ["覆診 3:00pm"] }
+}
+```
+
+Import is deliberately forgiving. It accepts:
+
+- the combined backup above → restores **config and events**;
+- a legacy plain-JSON config object → restores config only;
+- a legacy exported `config.js` (`/* comment */` + `const CONFIG = { ... };`) → config only.
+
+`parseBackup()` unwraps the `config.js` form. Events are written back to
+`homeDashboard.events.v1` and the import reports how many stops and events were restored. **The
+config part only takes effect after you press 儲存並套用** (events apply immediately).
 
 ## Versioning
 

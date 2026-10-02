@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.10';
+var APP_VERSION = '2026-10-02.11';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)

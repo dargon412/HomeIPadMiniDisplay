@@ -410,19 +410,23 @@
   function sectionBackup() {
     var s = makeSection('備份 Backup');
 
+    var hint = document.createElement('div');
+    hint.className = 'sf-hint';
+    hint.textContent = '一個檔案包含設定(巴士站/更表/天氣)同埋所有日曆活動。用同一個檔可以匯入還原。';
+    s.body.appendChild(hint);
+
     var row = document.createElement('div');
     row.className = 'sf-row';
 
-    row.appendChild(button('⬇️ 匯出 config.js', 'ghost', function () {
-      download('config.js', '/* Generated from the settings page */\nconst CONFIG = ' + JSON.stringify(working, null, 2) + ';\n', 'text/javascript');
-    }));
-    row.appendChild(button('⬇️ 匯出 JSON 備份', 'ghost', function () {
-      download('home-dashboard-backup.json', JSON.stringify(working, null, 2), 'application/json');
-    }));
-    row.appendChild(button('📋 複製設定 JSON', 'ghost', function () {
-      var text = JSON.stringify(working, null, 2);
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
-      alert('已複製到剪貼簿。');
+    row.appendChild(button('⬇️ 匯出備份 Backup', 'ghost', function () {
+      var backup = {
+        app: 'home-dashboard',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        config: working,
+        events: loadEventsSafe()
+      };
+      download('home-dashboard-backup.json', JSON.stringify(backup, null, 2), 'application/json');
     }));
     row.appendChild(button('♻️ 還原 config.js 預設', 'ghost danger', function () {
       if (confirm('確定還原為 config.js 的預設值？本機修改會清除。')) {
@@ -445,20 +449,34 @@
       reader.onload = function () {
         try {
           var parsed = parseBackup(reader.result);
-          if (parsed && parsed.busStops) {
-            working = {
-              title: parsed.title || working.title,
-              weather: Object.assign({}, working.weather, parsed.weather || {}),
-              roster: Object.assign({}, working.roster, parsed.roster || {}),
-              busStops: parsed.busStops
-            };
-            rerender();
-          } else { alert('檔案格式唔啱。'); }
+          // New combined backup: { config: {...}, events: {...} }
+          // Legacy backup: the config object itself (has busStops).
+          var cfg = (parsed && parsed.config) ? parsed.config : parsed;
+          if (!cfg || !cfg.busStops) { alert('檔案格式唔啱（搵唔到 busStops）。'); return; }
+
+          working = {
+            title: cfg.title || working.title,
+            weather: Object.assign({}, working.weather, cfg.weather || {}),
+            roster: Object.assign({}, working.roster, cfg.roster || {}),
+            refresh: Object.assign({}, working.refresh, cfg.refresh || {}),
+            busStops: cfg.busStops
+          };
+
+          var evCount = 0;
+          if (parsed && parsed.events) {
+            saveEventsSafe(parsed.events);
+            evCount = countEvents(parsed.events);
+          }
+
+          rerender();
+          alert('還原成功：' + working.busStops.length + ' 個巴士站' +
+            (evCount ? '、' + evCount + ' 個活動' : '（此備份沒有活動）') +
+            '。\n記得按「儲存並套用」先會生效。');
         } catch (e) { alert('讀取失敗：' + e.message); }
       };
       reader.readAsText(f);
     });
-    s.body.appendChild(makeField('匯入 JSON 備份', file));
+    s.body.appendChild(makeField('匯入備份 (JSON / config.js)', file));
 
     return s.el;
   }
@@ -477,6 +495,27 @@
     var end = s.lastIndexOf('}');
     if (start >= 0 && end > start) s = s.slice(start, end + 1);
     return JSON.parse(s);
+  }
+
+  /* Events live in app.js (loaded AFTER settings.js), so reach them through
+     the global functions if available and fall back to the raw key. */
+  var EVENTS_KEY = 'homeDashboard.events.v1';
+  function loadEventsSafe() {
+    try {
+      if (typeof loadEvents === 'function') return loadEvents();
+      return JSON.parse(localStorage.getItem(EVENTS_KEY)) || {};
+    } catch (e) { return {}; }
+  }
+  function saveEventsSafe(obj) {
+    try {
+      if (typeof saveEvents === 'function') { saveEvents(obj); return; }
+      localStorage.setItem(EVENTS_KEY, JSON.stringify(obj));
+    } catch (e) { /* storage full / private mode */ }
+  }
+  function countEvents(obj) {
+    var n = 0;
+    for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) n += (obj[k] || []).length; }
+    return n;
   }
 
   function download(filename, text, mime) {

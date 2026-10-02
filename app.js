@@ -11,7 +11,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.27';
+var APP_VERSION = '2026-10-02.28';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeMiniDisplay/?debug=1)
@@ -617,6 +617,18 @@ function saveEvents(obj) {
   catch (e) { /* storage full / private mode */ }
 }
 
+/* ---- parrot weight: one value per day, keyed by YYYY-MM-DD (grams) ---- */
+var WEIGHTS_KEY = 'homeDashboard.weights.v1';
+function loadWeights() {
+  try { return JSON.parse(localStorage.getItem(WEIGHTS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveWeights(obj) {
+  try { localStorage.setItem(WEIGHTS_KEY, JSON.stringify(obj)); }
+  catch (e) { /* storage full / private mode */ }
+}
+function hasWeight(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
+
 /* 4-day roster: compute the shift letter for a given date. */
 function rosterLetter(date) {
   var anchor = parseYmd(CFG.roster.anchorDate);
@@ -663,6 +675,7 @@ function renderCalendar() {
   var daysInMonth = new Date(y, m + 1, 0).getDate();
   var todayKey = ymd(new Date());
   var events = loadEvents();
+  var weights = loadWeights();
 
   var total = Math.ceil((firstDow + daysInMonth) / 7) * 7;
   for (var i = 0; i < total; i++) {
@@ -695,6 +708,10 @@ function renderCalendar() {
     if (letter) right.appendChild(badgeFor(letter));
     top.appendChild(right);
     cell.appendChild(top);
+
+    if (hasWeight(weights, key)) {
+      cell.appendChild(el('div', 'cal-weight', weights[key] + 'g'));
+    }
 
     var evs = events[key] || [];
     if (evs.length) {
@@ -733,6 +750,7 @@ function openModal(key) {
   $('modal-date').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
     WEEKDAYS[d.getDay()] + '　' + (CFG.roster.labels[rosterLetter(d)] || rosterLetter(d) || '');
   renderModalEvents();
+  renderModalWeight();
   $('modal').classList.remove('hidden');
   $('modal-input').value = '';
   modalOpenedAt = Date.now();
@@ -779,6 +797,228 @@ function addEvent() {
   saveEvents(ev);
   $('modal-input').value = '';
   renderModalEvents();
+}
+
+/* ------------------------- modal: parrot weight ------------------------- */
+function renderModalWeight() {
+  var input = $('weight-input');
+  var status = $('weight-status');
+  if (!input || !status) return;
+  var weights = loadWeights();
+  var has = hasWeight(weights, modalDateKey);
+  input.value = has ? String(weights[modalDateKey]) : '';
+  status.innerHTML = '';
+  if (has) {
+    status.appendChild(el('span', 'mw-cur', '已記錄：' + weights[modalDateKey] + ' g'));
+    var del = el('button', 'mw-del', '刪除');
+    onTap(del, deleteWeight);
+    status.appendChild(del);
+  } else {
+    status.appendChild(el('span', 'mw-cur muted', '此日未有紀錄'));
+  }
+}
+
+function saveWeight() {
+  if (!modalDateKey) return;
+  var raw = $('weight-input').value.trim();
+  if (!raw) return;
+  var v = Number(raw);
+  if (!isFinite(v) || v <= 0) { alert('請輸入有效嘅體重數字（克）。'); return; }
+  v = Math.round(v * 10) / 10;
+  var weights = loadWeights();
+  if (hasWeight(weights, modalDateKey) && weights[modalDateKey] !== v) {
+    if (!confirm('此日已記錄 ' + weights[modalDateKey] + ' g，要覆蓋成 ' + v + ' g 嗎？')) return;
+  }
+  weights[modalDateKey] = v;
+  saveWeights(weights);
+  renderModalWeight();
+  renderCalendar();
+}
+
+function deleteWeight() {
+  if (!modalDateKey) return;
+  var weights = loadWeights();
+  if (!hasWeight(weights, modalDateKey)) return;
+  if (!confirm('確定刪除 ' + modalDateKey + ' 嘅體重紀錄？')) return;
+  delete weights[modalDateKey];
+  saveWeights(weights);
+  renderModalWeight();
+  renderCalendar();
+}
+
+/* ============================================================
+   4b. PARROT WEIGHT CHART (native SVG, no dependencies)
+   ============================================================ */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  var e = document.createElementNS(SVGNS, tag);
+  for (var k in attrs) {
+    if (Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]);
+  }
+  return e;
+}
+
+/* Chart range state. wcDays = preset window (0 = all); wcFrom/wcTo = custom
+   YYYY-MM-DD range (null when a preset is active). */
+var wcDays = 30;
+var wcFrom = null;
+var wcTo = null;
+
+function buildWcRange() {
+  var box = $('wc-range');
+  if (!box) return;
+  box.innerHTML = '';
+  var presets = [
+    { d: 7, l: '7日' }, { d: 14, l: '14日' }, { d: 30, l: '30日' },
+    { d: 90, l: '90日' }, { d: 0, l: '全部' }
+  ];
+  presets.forEach(function (p) {
+    var active = (wcFrom === null && wcDays === p.d);
+    var b = el('button', 'wc-btn' + (active ? ' active' : ''), p.l);
+    onTap(b, function () {
+      wcDays = p.d; wcFrom = null; wcTo = null;
+      buildWcRange(); renderWeightChart();
+    });
+    box.appendChild(b);
+  });
+
+  var from = document.createElement('input');
+  from.type = 'date'; from.className = 'wc-date'; from.value = wcFrom || '';
+  var to = document.createElement('input');
+  to.type = 'date'; to.className = 'wc-date'; to.value = wcTo || '';
+  var apply = el('button', 'wc-btn' + (wcFrom !== null ? ' active' : ''), '自訂');
+  onTap(apply, function () {
+    if (!from.value || !to.value) { alert('請選擇起始同結束日期。'); return; }
+    if (from.value > to.value) { alert('起始日期唔可以遲過結束日期。'); return; }
+    wcFrom = from.value; wcTo = to.value;
+    buildWcRange(); renderWeightChart();
+  });
+  box.appendChild(from);
+  box.appendChild(el('span', 'wc-axis', '至'));
+  box.appendChild(to);
+  box.appendChild(apply);
+}
+
+function openWeightChart() {
+  wcDays = 30; wcFrom = null; wcTo = null;
+  buildWcRange();
+  renderWeightChart();
+  $('weight-chart-modal').classList.remove('hidden');
+  mark('openWeightChart');
+}
+function closeWeightChart() { $('weight-chart-modal').classList.add('hidden'); }
+
+function renderWeightChart() {
+  var host = $('weight-chart');
+  var meta = $('wc-meta');
+  if (!host) return;
+  host.innerHTML = '';
+  if (meta) meta.textContent = '';
+
+  // Collect all recorded points, sorted by date.
+  var weights = loadWeights();
+  var all = [];
+  for (var k in weights) {
+    if (!Object.prototype.hasOwnProperty.call(weights, k)) continue;
+    var d = parseYmd(k);
+    var v = Number(weights[k]);
+    if (!d || !isFinite(v)) continue;
+    all.push({ key: k, date: d, v: v });
+  }
+  all.sort(function (a, b) { return a.date - b.date; });
+
+  // Work out the date domain.
+  var t0 = null, t1 = null, label = '';
+  if (wcFrom && wcTo) {
+    var fd = parseYmd(wcFrom), td = parseYmd(wcTo);
+    if (fd && td && fd <= td) { t0 = fd; t1 = td; label = wcFrom + ' 至 ' + wcTo; }
+  }
+  if (t0 === null) {
+    if (wcDays > 0) {
+      t1 = new Date(); t1.setHours(0, 0, 0, 0);
+      t0 = new Date(t1.getTime() - (wcDays - 1) * 86400000);
+      label = '最近 ' + wcDays + ' 日';
+    } else if (all.length) {
+      t0 = all[0].date; t1 = all[all.length - 1].date; label = '全部紀錄';
+    }
+  }
+  if (t0 === null) {
+    host.appendChild(el('div', 'wc-empty', '未有體重紀錄。點日曆一日就可以開始記錄。'));
+    return;
+  }
+  if (t1.getTime() === t0.getTime()) t1 = new Date(t0.getTime() + 86400000);
+
+  // Points inside the domain. Missing days are simply absent — the line
+  // connects straight to the next recorded point.
+  var pts = all.filter(function (p) { return p.date >= t0 && p.date <= t1; });
+  if (!pts.length) {
+    host.appendChild(el('div', 'wc-empty', '此範圍內未有紀錄。'));
+    if (meta) meta.textContent = label;
+    return;
+  }
+
+  // Y domain (with a little padding).
+  var vals = pts.map(function (p) { return p.v; });
+  var vmin = Math.min.apply(null, vals), vmax = Math.max.apply(null, vals);
+  var pad = Math.max(1, (vmax - vmin) * 0.15);
+  var y0 = vmin - pad, y1 = vmax + pad;
+  if (y1 - y0 < 2) { y0 = vmin - 1; y1 = vmax + 1; }
+
+  var W = 480, H = 260, padL = 48, padR = 16, padT = 18, padB = 34;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var span = t1.getTime() - t0.getTime();
+  function X(d) { return padL + (d.getTime() - t0.getTime()) / span * plotW; }
+  function Y(v) { return padT + (1 - (v - y0) / (y1 - y0)) * plotH; }
+
+  var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet' });
+
+  // Horizontal gridlines + Y labels.
+  var steps = 4;
+  for (var i = 0; i <= steps; i++) {
+    var val = y0 + (y1 - y0) * i / steps;
+    var yy = Y(val);
+    svg.appendChild(svgEl('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, 'class': 'wc-grid' }));
+    var yl = svgEl('text', { x: padL - 6, y: yy + 4, 'class': 'wc-axis', 'text-anchor': 'end' });
+    yl.textContent = String(Math.round(val));
+    svg.appendChild(yl);
+  }
+
+  // X labels (about 5, spread across the domain).
+  var xN = 5;
+  for (var j = 0; j < xN; j++) {
+    var tt = new Date(t0.getTime() + span * j / (xN - 1));
+    var xl = svgEl('text', { x: X(tt), y: H - padB + 18, 'class': 'wc-axis', 'text-anchor': 'middle' });
+    xl.textContent = (tt.getMonth() + 1) + '/' + tt.getDate();
+    svg.appendChild(xl);
+  }
+
+  // The line: connects recorded points directly (gaps are spanned).
+  var coords = pts.map(function (p) { return X(p.date) + ',' + Y(p.v); }).join(' ');
+  svg.appendChild(svgEl('polyline', { points: coords, 'class': 'wc-line' }));
+
+  // Dots, with value labels when there aren't too many.
+  var showVals = pts.length <= 12;
+  pts.forEach(function (p) {
+    var cx = X(p.date), cy = Y(p.v);
+    svg.appendChild(svgEl('circle', { cx: cx, cy: cy, r: 4, 'class': 'wc-dot' }));
+    if (showVals) {
+      var vl = svgEl('text', { x: cx, y: cy - 8, 'class': 'wc-val', 'text-anchor': 'middle' });
+      vl.textContent = String(p.v);
+      svg.appendChild(vl);
+    }
+  });
+
+  host.appendChild(svg);
+
+  if (meta) {
+    var latest = pts[pts.length - 1], first = pts[0];
+    var diff = Math.round((latest.v - first.v) * 10) / 10;
+    var sum = 0;
+    for (var s = 0; s < vals.length; s++) sum += vals[s];
+    var avg = Math.round(sum / vals.length * 10) / 10;
+    meta.textContent = label + '：最新 ' + latest.v + ' g（' + (diff > 0 ? '+' : '') + diff +
+      ' g）· 平均 ' + avg + ' g · 範圍 ' + vmin + '–' + vmax + ' g · ' + pts.length + ' 次';
+  }
 }
 
 /* ============================================================
@@ -900,6 +1140,19 @@ function bindUi() {
   // (Tapping the overlay to close is handled by guardCalendarWhileModalOpen,
   //  which stopPropagation()s before this element's own handlers could run.)
 
+  // parrot weight: save / delete inside the event modal
+  onTap($('weight-save-btn'), saveWeight);
+  $('weight-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') saveWeight();
+  });
+
+  // weight chart modal
+  onTap($('weight-chart-btn'), openWeightChart);
+  onTap($('wc-close'), closeWeightChart);
+  onTap($('weight-chart-modal'), function (e) {
+    if (e.target === $('weight-chart-modal')) closeWeightChart();
+  });
+
   mark('bindUi done');
 
   onTap($('settings-btn'), function () {
@@ -947,10 +1200,11 @@ function markInteraction() { lastInteraction = Date.now(); }
 window.appVersion = function () { return APP_VERSION; };
 
 function isInteracting() {
-  var s = $('settings'), m = $('modal'), w = $('weather-modal');
+  var s = $('settings'), m = $('modal'), w = $('weather-modal'), c = $('weight-chart-modal');
   if (s && !s.classList.contains('hidden')) return true;   // settings open
   if (m && !m.classList.contains('hidden')) return true;   // adding an event
   if (w && !w.classList.contains('hidden')) return true;   // weather detail open
+  if (c && !c.classList.contains('hidden')) return true;   // weight chart open
   var ae = document.activeElement;
   if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true; // typing
   if (Date.now() - lastInteraction < 4000) return true;    // just touched the screen

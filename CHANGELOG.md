@@ -5,6 +5,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **🦜 Parrot daily weight + line chart.** The event popup (tap any calendar day) now has a
+  **鸚鵡體重 Parrot weight** section: enter grams and press 記錄. **One value per day** — entering a
+  second value for the same day asks to overwrite. A recorded day can be deleted, and the calendar
+  cell shows the number (`425g`). A new **📈** button in the calendar title row opens a **native-SVG
+  line chart** (no libraries): the range defaults to the **last 30 days** with presets
+  (7/14/30/90/全部) and a **custom start/end date**; **missing days are skipped and the line connects
+  straight to the next recorded point**. Records are stored in `homeDashboard.weights.v1` and are
+  **included in the backup/import**.
+
 ### Changed
 - **Weather detail popup now closes with an ✕ in its top-right corner**, matching the add-event
   popup, instead of the old full-width 關閉 button. Both modals now share a `.modal-close` style.

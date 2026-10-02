@@ -3,12 +3,13 @@
 Everything the app remembers lives in the browser's `localStorage`, on the device. Nothing is
 sent to any server except the public bus/weather API calls.
 
-## Two things are stored
+## Three things are stored
 
 | localStorage key | What | Written by | Read by |
 |---|---|---|---|
-| `homeDashboard.config.v1` | Your settings (stops, roster, district, refresh) | settings page | `DashboardConfig.load()` |
+| `homeDashboard.config.v1` | Your settings (stops, roster, district, refresh, layout) | settings page | `DashboardConfig.load()` |
 | `homeDashboard.events.v1` | Calendar events | calendar modal | `loadEvents()` |
+| `homeDashboard.weights.v1` | Parrot weight, one value per day (grams) | calendar modal | `loadWeights()` |
 
 ## How config is resolved
 
@@ -82,13 +83,30 @@ date exactly equal to the anchor is `M`, the next day `N`, then `L`, `L`, then `
 
 Event text is rendered with `textContent`, so it is safe against HTML injection.
 
+## Parrot weight
+
+```js
+{
+  "2026-10-01": 423,
+  "2026-10-02": 425
+}
+```
+
+- Keyed by local date `YYYY-MM-DD` — so there can only ever be **one value per day**.
+- Units are **grams**; one decimal is kept.
+- Entering a value for a day that already has one prompts to overwrite. The day can also be deleted.
+- The calendar cell shows the number (`425g`) on recorded days.
+- The 📈 chart button draws a native-SVG line chart (no libraries). Missing days are simply
+  skipped — the line connects straight to the next recorded point. The range defaults to the last
+  30 days and can be changed with the presets or a custom start/end date.
+
 ## Backup and restore
 
 The settings page (**⚙️ → 備份**) provides:
 
 | Button | Effect |
 |---|---|
-| ⬇️ 匯出備份 Backup | Downloads **one** `.json` file containing the config **and all calendar events** |
+| ⬇️ 匯出備份 Backup | Downloads **one** `.json` file containing the config, **all calendar events** and **all weight records** |
 | ♻️ 還原 config.js 預設 | Deletes the saved config (falls back to `config.js`) |
 | 匯入備份 | Loads a backup — the combined file, or a legacy plain-JSON / `config.js` file |
 
@@ -103,19 +121,21 @@ The single export button writes `home-dashboard-backup.json`:
   "exportedAt": "2026-10-02T17:00:00.000Z",
   "config": { "title": "...", "weather": {...}, "roster": {...},
               "refresh": {...}, "busStops": [ ... ] },
-  "events": { "2026-10-05": ["覆診 3:00pm"] }
+  "events": { "2026-10-05": ["覆診 3:00pm"] },
+  "weights": { "2026-10-01": 423, "2026-10-02": 425 }
 }
 ```
 
 Import is deliberately forgiving. It accepts:
 
-- the combined backup above → restores **config and events**;
+- the combined backup above → restores **config, events and weights**;
 - a legacy plain-JSON config object → restores config only;
 - a legacy exported `config.js` (`/* comment */` + `const CONFIG = { ... };`) → config only.
 
 `parseBackup()` unwraps the `config.js` form. Events are written back to
-`homeDashboard.events.v1` and the import reports how many stops and events were restored. **The
-config part only takes effect after you press 儲存並套用** (events apply immediately).
+`homeDashboard.events.v1`, weights to `homeDashboard.weights.v1`, and the import reports how many
+stops, events and weight days were restored. **The config part only takes effect after you press
+儲存並套用** (events and weights apply immediately).
 
 ## Versioning
 

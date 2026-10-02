@@ -542,7 +542,7 @@
 
     var hint = document.createElement('div');
     hint.className = 'sf-hint';
-    hint.textContent = '一個檔案包含設定(巴士站/更表/天氣)同埋所有日曆活動。用同一個檔可以匯入還原。';
+    hint.textContent = '一個檔案包含設定(巴士站/更表/天氣)、所有日曆活動同埋鸚鵡體重紀錄。用同一個檔可以匯入還原。';
     s.body.appendChild(hint);
 
     var row = document.createElement('div');
@@ -554,7 +554,8 @@
         version: 1,
         exportedAt: new Date().toISOString(),
         config: working,
-        events: loadEventsSafe()
+        events: loadEventsSafe(),
+        weights: loadWeightsSafe()
       };
       download('home-dashboard-backup.json', JSON.stringify(backup, null, 2), 'application/json');
     }));
@@ -604,9 +605,16 @@
             evCount = countEvents(parsed.events);
           }
 
+          var wtCount = 0;
+          if (parsed && parsed.weights) {
+            saveWeightsSafe(parsed.weights);
+            wtCount = countWeights(parsed.weights);
+          }
+
           rerender();
           alert('還原成功：' + working.busStops.length + ' 個巴士站' +
             (evCount ? '、' + evCount + ' 個活動' : '（此備份沒有活動）') +
+            (wtCount ? '、' + wtCount + ' 日體重' : '') +
             '。\n記得按「儲存並套用」先會生效。');
         } catch (e) { alert('讀取失敗：' + e.message); }
       };
@@ -651,6 +659,26 @@
   function countEvents(obj) {
     var n = 0;
     for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) n += (obj[k] || []).length; }
+    return n;
+  }
+
+  /* Parrot weights, same pattern (defined in app.js, loaded after this file). */
+  var WEIGHTS_KEY = 'homeDashboard.weights.v1';
+  function loadWeightsSafe() {
+    try {
+      if (typeof loadWeights === 'function') return loadWeights();
+      return JSON.parse(localStorage.getItem(WEIGHTS_KEY)) || {};
+    } catch (e) { return {}; }
+  }
+  function saveWeightsSafe(obj) {
+    try {
+      if (typeof saveWeights === 'function') { saveWeights(obj); return; }
+      localStorage.setItem(WEIGHTS_KEY, JSON.stringify(obj));
+    } catch (e) { /* storage full / private mode */ }
+  }
+  function countWeights(obj) {
+    var n = 0;
+    for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) n++; }
     return n;
   }
 

@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#0b1220">
   <link rel="manifest" href="manifest.json">
   <title>家庭看板 · Home Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=31">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -49,6 +49,7 @@
         <h2 id="cal-title">----</h2>
         <button id="today-btn">今天</button>
         <button id="next-month" aria-label="下個月">›</button>
+        <button id="weight-chart-btn" title="鸚鵡體重圖表" aria-label="鸚鵡體重圖表">📈</button>
       </div>
       <div id="cal-weekdays"></div>
       <div id="cal-grid"></div>
@@ -91,11 +92,33 @@
         <input id="modal-input" type="text" placeholder="輸入活動，例如：覆診 3:00pm" autocomplete="off">
         <button id="modal-add-btn">新增</button>
       </div>
+
+      <div class="modal-weight">
+        <div class="mw-head">🦜 鸚鵡體重 <span class="en">Parrot weight</span></div>
+        <div class="mw-row">
+          <input id="weight-input" type="number" inputmode="decimal" step="1" min="0"
+                 placeholder="例如 425" autocomplete="off">
+          <span class="mw-unit">g</span>
+          <button id="weight-save-btn">記錄</button>
+        </div>
+        <div id="weight-status" class="mw-status"></div>
+      </div>
     </div>
   </div>
 
-  <script src="config.js?v=31"></script>
-  <script src="settings.js?v=31"></script>
-  <script src="app.js?v=31"></script>
+  <!-- ======================= WEIGHT CHART ======================= -->
+  <div id="weight-chart-modal" class="hidden">
+    <div class="modal-card chart-card">
+      <button id="wc-close" class="modal-close" title="關閉" aria-label="關閉">✕</button>
+      <h3 id="wc-title">🦜 鸚鵡體重紀錄</h3>
+      <div id="wc-range" class="wc-range"></div>
+      <div id="weight-chart"></div>
+      <div id="wc-meta" class="wc-meta"></div>
+    </div>
+  </div>
+
+  <script src="config.js?v=32"></script>
+  <script src="settings.js?v=32"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>

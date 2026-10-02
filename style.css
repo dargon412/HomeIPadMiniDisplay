@@ -237,12 +237,12 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 #roster-legend .hint { margin-left: auto; color: var(--muted); }
 
 /* ---------------- MODAL ---------------- */
-#modal, #weather-modal {
+#modal, #weather-modal, #weight-chart-modal {
   position: fixed; inset: 0; background: rgba(3, 8, 18, 0.72);
   display: flex; align-items: center; justify-content: center;
   z-index: 300;   /* above the debug panel (200) so it is never hidden */
 }
-#modal.hidden, #weather-modal.hidden, #settings.hidden { display: none; }
+#modal.hidden, #weather-modal.hidden, #weight-chart-modal.hidden, #settings.hidden { display: none; }
 
 /* weather detail */
 #wm-body { max-height: 52vh; overflow-y: auto; }
@@ -285,6 +285,57 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
   background: var(--accent); color: #04122a; border: none; border-radius: 10px;
   padding: 0 18px; font-size: 16px; font-weight: 700; cursor: pointer;
 }
+
+/* ---- parrot weight (inside the event modal) ---- */
+.modal-weight {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.mw-head { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.mw-head .en { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.mw-row { display: flex; align-items: center; gap: 8px; }
+#weight-input {
+  flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); border-radius: 10px; padding: 12px; font-size: 16px;
+  -webkit-appearance: none; appearance: none;
+}
+.mw-unit { color: var(--muted); font-size: 15px; }
+#weight-save-btn {
+  background: var(--accent); color: #04122a; border: none; border-radius: 10px;
+  padding: 0 18px; height: 44px; font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.mw-status { margin-top: 8px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; min-height: 18px; }
+.mw-status .mw-cur { color: var(--text); }
+.mw-status .mw-cur.muted { color: var(--muted); }
+.mw-status .mw-del {
+  background: transparent; border: 1px solid var(--line); color: var(--danger);
+  border-radius: 8px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+
+/* ---- calendar cell weight ---- */
+.cal-weight { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+/* ---- weight chart modal ---- */
+.chart-card { width: min(620px, 94vw); }
+#wc-range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.wc-btn {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+}
+.wc-btn.active { background: var(--accent); color: #04122a; border-color: var(--accent); font-weight: 700; }
+.wc-date {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 8px; font-size: 13px; width: auto;
+  -webkit-appearance: none; appearance: none;
+}
+#weight-chart { min-height: 180px; }
+#weight-chart svg { width: 100%; height: auto; display: block; }
+#weight-chart .wc-empty { padding: 40px 0; text-align: center; color: var(--muted); }
+.wc-grid { stroke: var(--line); stroke-width: 1; }
+.wc-axis { fill: var(--muted); font-size: 11px; }
+.wc-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.wc-dot { fill: var(--accent); stroke: #04122a; stroke-width: 1.5; }
+.wc-val { fill: var(--text); font-size: 11px; }
+.wc-meta { margin-top: 10px; font-size: 13px; color: var(--muted); }
 /* Top-right ✕ close button, shared by the event and weather modals. */
 .modal-close {
   position: absolute; top: 10px; right: 10px;

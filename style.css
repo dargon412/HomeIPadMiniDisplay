@@ -1,9 +1,15 @@
 /* ============================================================
    家庭看板 Home Dashboard — styles
-   Designed for iPad mini 4 (iPadOS 15), landscape 1024 x 768.
+   Designed for a wall-mounted tablet in landscape.
+   Target: Samsung Galaxy Tab A9 — 1340 x 800 (5:3), Chrome/Android.
+   The layout is relative (%, vh) so it also fits iPad mini 4 (1024x768).
    ============================================================ */
 
 :root {
+  /* Height of the header bar. `main` is sized from this, so change both
+     together if you resize the header. Overridden on wide screens below. */
+  --topbar-h: 104px;
+
   --bg: #0b1220;
   --panel: #131c2e;
   --panel-2: #1b2740;
@@ -32,7 +38,7 @@ html, body {
 
 /* ---------------- HEADER ---------------- */
 #topbar {
-  height: 104px;
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -74,7 +80,7 @@ html, body {
 
 /* ---------------- MAIN LAYOUT ---------------- */
 main {
-  height: calc(100% - 104px);
+  height: calc(100% - var(--topbar-h));
   display: grid;
   grid-template-columns: 42% 58%;
   gap: 14px;
@@ -382,6 +388,38 @@ button.icon-btn {
 }
 .search-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .search-info .mono { font-family: ui-monospace, Menlo, monospace; color: var(--accent); font-size: 12px; }
+
+/* ---------------- WIDE LANDSCAPE (Galaxy Tab A9, 5:3) ----------------
+   At 1340x800 there is much more width than the old 4:3 iPad, so give the
+   header more room and let the calendar take a bigger share. */
+@media (orientation: landscape) and (min-width: 1100px) {
+  :root { --topbar-h: 122px; }
+
+  main { grid-template-columns: 40% 60%; gap: 16px; padding: 16px; }
+
+  #time { font-size: 44px; }
+  #date { font-size: 15px; }
+  #weather-icon { font-size: 34px; }
+  #weather-temp { font-size: 28px; }
+  #weather-desc { font-size: 13px; max-width: 330px; }
+  #weather-extra { font-size: 13px; }
+
+  .fc-day { min-width: 52px; padding: 5px 4px; }
+  .fc-dow { font-size: 12px; }
+  .fc-icon { font-size: 22px; }
+  .fc-temp { font-size: 12px; }
+
+  .panel-title { font-size: 22px; }
+  .stop-head { font-size: 17px; }
+  .route-no { font-size: 24px; }
+  .chip-min { font-size: 22px; }
+  .chip-time { font-size: 12px; }
+
+  .cal-day { font-size: 17px; }
+  .cal-event { font-size: 12px; }
+  .cal-wx { font-size: 15px; }
+  .badge { font-size: 12px; padding: 3px 7px; }
+}
 
 /* ---------------- PORTRAIT FALLBACK ---------------- */
 @media (orientation: portrait) {

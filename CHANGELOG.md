@@ -5,6 +5,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Portrait layout ran off the screen.** In portrait the panels stack, but the bus panel grew
+  unbounded and the calendar was pushed past the bottom edge, cutting off the last week-row and the
+  roster legend. Portrait now caps the bus panel at 34% (it scrolls internally), gives the calendar
+  the remaining 66%, and puts the header on a clean two-row grid (clock + weather + gear, then the
+  forecast strip) so all six week-rows, the legend and the 7-day forecast are visible without
+  scrolling. Landscape is unchanged.
+
 ### Changed
 - **The add-event popup's close control is now a ✕ in the top-right corner** of the card, instead
   of a full-width 關閉 button at the bottom. The card is `position: relative` and the button is

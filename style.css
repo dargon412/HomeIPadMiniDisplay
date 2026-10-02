@@ -428,12 +428,52 @@ button.icon-btn {
   .badge { font-size: 12px; padding: 3px 7px; }
 }
 
-/* ---------------- PORTRAIT FALLBACK ---------------- */
+/* ---------------- PORTRAIT FALLBACK ----------------
+   The dashboard is built for landscape; in portrait the panels stack. Keep
+   everything inside the viewport: cap the bus panel, let it scroll, and give
+   the calendar a fixed share so no row or the legend is pushed off-screen. */
 @media (orientation: portrait) {
-  html, body { overflow: auto; }
-  #topbar { height: auto; flex-wrap: wrap; padding: 10px 14px; gap: 12px; }
-  #time { font-size: 34px; }
-  main { height: auto; grid-template-columns: 1fr; }
-  #bus-list { max-height: 40vh; }
-  #cal-grid { min-height: 60vh; }
+  html, body { overflow: hidden; }
+
+  /* Header: a 2-row grid — clock + weather + gear, then the forecast strip.
+     A grid is far more predictable than flex-wrap here. */
+  :root { --topbar-h: 172px; }
+  #topbar {
+    height: var(--topbar-h);
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 8px 12px 6px;
+  }
+  #clock { grid-column: 1; grid-row: 1; min-width: 0; }
+  #time { font-size: 30px; }
+  #date { font-size: 12px; margin-top: 2px; }
+  #weather { grid-column: 2; grid-row: 1; min-width: 0; }
+  #weather-desc { max-width: 140px; }
+  #settings-btn { grid-column: 3; grid-row: 1; }
+  #status { display: none; }             /* transient text; save the space */
+  #forecast {
+    grid-column: 1 / -1; grid-row: 2;
+    display: flex; justify-content: space-between; gap: 3px;
+  }
+  .fc-day { min-width: 0; flex: 1 1 0; padding: 3px 2px; }
+
+  /* Stacked panels: give the bus panel a fixed share and let it scroll,
+     so the calendar always has room for all six week-rows and the legend. */
+  main {
+    height: calc(100% - var(--topbar-h));
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 34%) minmax(0, 66%);
+    gap: 10px;
+    padding: 10px;
+  }
+  #bus-list { max-height: none; }
+
+  #cal-grid { min-height: 0; }
+  .cal-cell { padding: 3px 4px; }
+  .cal-day { font-size: 15px; }
+  .badge { font-size: 10px; padding: 2px 5px; }
+  #roster-legend { padding: 4px 10px 0; font-size: 11px; }
 }

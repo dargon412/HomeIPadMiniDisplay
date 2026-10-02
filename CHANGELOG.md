@@ -5,6 +5,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Importing an exported backup failed with `JSON.parse: unexpected character at line 1 column 1`.**
+  The `⬇️ 匯出 config.js` button writes a JavaScript file (`/* comment */` + `const CONFIG = ...;`),
+  but the import button fed that straight into `JSON.parse()`. Import now accepts **both** raw JSON
+  and an exported `config.js` (`parseBackup()` strips the comment and the `const CONFIG =` wrapper).
+  A new `⬇️ 匯出 JSON 備份` button writes a plain `.json` file for a clean round-trip.
+
+- **Tapping another day while the add-event popup was open changed the popup's date.** Calendar
+  cell taps now check `modalIsOpen()` and are ignored while the popup is on screen, so a stray tap
+  on a day behind the overlay cannot switch dates.
+
 ### Changed
 - **Target device is now a Samsung Galaxy Tab A9** (1340 × 800, 5:3, Chrome) instead of an
   iPad mini 4. The layout was already relative, so the change is tuning rather than a rewrite:

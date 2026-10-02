@@ -88,10 +88,15 @@ The settings page (**⚙️ → 備份**) provides:
 
 | Button | Effect |
 |---|---|
-| ⬇️ 匯出 config.js | Downloads a file that is a drop-in replacement for `config.js` |
+| ⬇️ 匯出 config.js | Downloads a drop-in replacement for `config.js` |
+| ⬇️ 匯出 JSON 備份 | Downloads a plain `.json` file (cleanest round-trip with 匯入) |
 | 📋 複製設定 JSON | Copies the config JSON to the clipboard |
 | ♻️ 還原 config.js 預設 | Deletes the saved config (falls back to `config.js`) |
-| 匯入 JSON 備份 | Loads a previously exported JSON |
+| 匯入 JSON 備份 | Loads a backup — accepts **either** a plain JSON file **or** an exported `config.js` |
+
+The import button is deliberately forgiving: it accepts raw JSON *and* the `config.js` wrapper
+(a leading `/* ... */` comment plus `const CONFIG = { ... };`), because the two export buttons
+produce different formats. `parseBackup()` handles the unwrapping.
 
 **Events are not included in the config export** (they are separate). If you need to back up
 events, read the `homeDashboard.events.v1` value in a browser console and save it.

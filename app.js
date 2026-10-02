@@ -10,7 +10,7 @@
 
 /* Bump this whenever you change the app, so you can tell which build a
    device is running (shown in ⚙️ settings and logged on load). */
-var APP_VERSION = '2026-10-02.8';
+var APP_VERSION = '2026-10-02.9';
 
 /* ---------------- on-device tap diagnostics ----------------
    Open the page with ?debug=1 (e.g. .../HomeIPadMiniDisplay/?debug=1)
@@ -655,6 +655,13 @@ function renderCalendar() {
 /* ------------------------- event modal ------------------------- */
 var modalDateKey = null;
 
+/* True while the event popup is on screen. Calendar day taps are ignored in
+   this state so a stray tap on a day behind the popup cannot switch its date. */
+function modalIsOpen() {
+  var m = $('modal');
+  return !!m && !m.classList.contains('hidden');
+}
+
 function openModal(key) {
   if (!key) return;
   modalDateKey = key;
@@ -733,11 +740,13 @@ function bindCellTap(cell, key) {
   cell.addEventListener('touchend', function () {
     if (moved) return;
     handled = true;                 // stop the synthetic click that follows
+    if (modalIsOpen()) return;      // ignore while the event popup is open
     mark('cell touchend ' + key);
     openModal(key);
   });
   cell.addEventListener('click', function () {
     if (handled) { handled = false; return; }   // already handled by touchend
+    if (modalIsOpen()) return;      // ignore while the event popup is open
     mark('cell click ' + key);
     openModal(key);
   });

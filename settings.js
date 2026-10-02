@@ -416,6 +416,9 @@
     row.appendChild(button('⬇️ 匯出 config.js', 'ghost', function () {
       download('config.js', '/* Generated from the settings page */\nconst CONFIG = ' + JSON.stringify(working, null, 2) + ';\n', 'text/javascript');
     }));
+    row.appendChild(button('⬇️ 匯出 JSON 備份', 'ghost', function () {
+      download('home-dashboard-backup.json', JSON.stringify(working, null, 2), 'application/json');
+    }));
     row.appendChild(button('📋 複製設定 JSON', 'ghost', function () {
       var text = JSON.stringify(working, null, 2);
       if (navigator.clipboard) navigator.clipboard.writeText(text);
@@ -441,7 +444,7 @@
       var reader = new FileReader();
       reader.onload = function () {
         try {
-          var parsed = JSON.parse(reader.result);
+          var parsed = parseBackup(reader.result);
           if (parsed && parsed.busStops) {
             working = {
               title: parsed.title || working.title,
@@ -458,6 +461,22 @@
     s.body.appendChild(makeField('匯入 JSON 備份', file));
 
     return s.el;
+  }
+
+  /* Accept either a raw JSON backup or a previously exported `config.js`
+     (which starts with a comment and wraps the object in `const CONFIG = ...;`).
+     Both round-trip through the same import button. */
+  function parseBackup(text) {
+    var s = String(text || '');
+    try { return JSON.parse(s); } catch (e) { /* fall through */ }
+    // Strip a leading comment and any `const CONFIG =` wrapper, then take the
+    // outermost { ... } object. Export/import now round-trip.
+    s = s.replace(/^\s*\/\*[\s\S]*?\*\//, '');
+    s = s.replace(/^\s*(?:const|var|let)\s+CONFIG\s*=\s*/, '');
+    var start = s.indexOf('{');
+    var end = s.lastIndexOf('}');
+    if (start >= 0 && end > start) s = s.slice(start, end + 1);
+    return JSON.parse(s);
   }
 
   function download(filename, text, mime) {

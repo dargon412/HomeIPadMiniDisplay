@@ -1,0 +1,79 @@
+# AGENTS.md
+
+Orientation for agents working in this repo. Read this first; the `docs/` folder has the depth.
+
+## What this is
+
+An always-on wall dashboard (HK bus ETAs + a shift roster calendar + weather). **No backend, no
+build step, no dependencies, no package manager.** Plain HTML/CSS/JS served statically from GitHub
+Pages; the browser calls Hong Kong government open-data APIs directly. Do not introduce a bundler,
+npm, or a framework.
+
+- Live: <https://dargon412.github.io/HomeMiniDisplay/>
+- Repo: `git@github.com:dargon412/HomeMiniDisplay.git` (remote `origin`, branch `main`)
+- Note: the README title still says `HomeIPadMiniDispay` — that is stale, the repo was renamed.
+
+## Run and verify
+
+```bash
+cd ~/ipad-dashboard
+python3 -m http.server 8000        # then open http://localhost:8000
+```
+
+No test suite, no linter, no typechecker. Verify a change by loading the page in a browser at the
+target size (**1340 × 800 landscape**) and/or by stubbing `fetch` (and throwaway `_*.html` scratch
+pages, which `.gitignore` is set up to ignore). `node` is **not installed** on this machine.
+
+There is a known-slow path: headless Firefox screenshots here often fire before JS/timers run, so
+they show unpopulated panels. Do not treat an empty chip/`…`/`--°C` in a headless render as a bug —
+confirm against the live API with `curl` or an injected `fetch` stub first.
+
+## Files (load order matters)
+
+`index.html` → `config.js` → `settings.js` → `app.js`. `settings.js` defines `window.DashboardConfig`
+and `window.openSettings` *before* `app.js` reads them. Keep the order if you touch the script tags.
+
+| File | Job |
+|---|---|
+| `config.js` | **Defaults only** (`const CONFIG = {...}`). Saved settings win over it. |
+| `settings.js` | The ⚙️ settings page; owns read/write of saved config. IIFE exposing 2 globals. |
+| `app.js` | Dashboard: clock, weather, bus, calendar, refresh scheduling. Sections marked by banner comments. |
+| `tools.html` | Standalone bus-stop finder (settings has its own now). |
+
+Customize-stop IDs come from `tools.html`; `docs/API.md` documents the exact endpoints.
+
+## Hard rules / gotchas
+
+- **Every release must bump the cache-buster.** GitHub Pages sends `cache-control: max-age=600`
+  and Safari caches harder still. Bump all four `?v=N` in `index.html` (lines ~12, 98–100, currently
+  `v=9`) **and** `APP_VERSION` in `app.js` (currently `'2026-10-02.8'`). The version shows
+  bottom-left on the page and in the settings footer; that is how a device is confirmed to be on the
+  new build. Missing this is the #1 source of "I pushed but the device shows the old thing".
+- **Bind taps with `onTap(node, handler)` — never `click` directly on a non-`<button>`.** A tap that
+  drifts >10 px is treated as a scroll and no `click` fires. `onTap` guards the touch→click
+  double-fire. This has already caused a long debugging saga.
+- **A syntax error in `config.js` blanks the whole page.** Check it first when the page is white.
+- **Header height is coupled to the main area.** It is now the `--topbar-h` CSS variable; both
+  `#topbar` and `main { height: calc(100% - var(--topbar-h)) }` use it. Change only the variable.
+- **Keep JS conservative** (`docs/DEVELOPMENT.md` has the table): no `?.`, `??`, `Array.prototype.at`,
+  top-level `await`, class fields, `structuredClone`. It deliberately reads old-fashioned.
+- **Config defaults vs saved:** editing `config.js` does **not** change a device that already has
+  saved settings — the localStorage copy wins. Reset via ⚙️ → 備份 → 還原 config.js 預設.
+- **Never commit personal data or secrets.** `config.js` should hold demo stops only; the user's
+  real stops/roster/events live in the device's `localStorage` (`homeDashboard.config.v1`,
+  `homeDashboard.events.v1`). The repo is public. The user has explicitly said "no surprise".
+- **Auto-refresh must keep pausing on interaction** — see `isInteracting()` / `scheduleRefresh()` in
+  `app.js`. Any new timed refresh goes through the same guard.
+
+## Known doc drift (fix if you touch these)
+
+- `docs/DEVELOPMENT.md` and `docs/ARCHITECTURE.md` still mention `findUp()`, which was removed when
+  calendar cells began binding their own dates. Prefer `onTap` + per-element data over DOM walking.
+- `docs/DEVELOPMENT.md` still says "Check every change at 1024×768" in one spot; the real target is
+  1340×800.
+
+## Before you finish
+
+Update `CHANGELOG.md`, then bump the version/cache-buster, commit, and `git push` (Pages redeploys in
+a minute or two). Do not add dependencies. Changes should degrade gracefully offline (each fetch is
+individually `.catch()`-ed via `fetchJson`).
